@@ -60,3 +60,5 @@ export function seedDemoUser() {
     passwordHash: bcrypt.hashSync(DEMO_ACCOUNT.password, 10),
   });
 }
+
+seedDemoUser();

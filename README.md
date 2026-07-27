@@ -1,34 +1,30 @@
 # ANSER Web v2
 
 Independent web product — not part of the ANSER Flask codebase (`ban-le` / `gateway` / `san-xuat`).
-Built from scratch: Next.js frontend + Node.js backend, communicating over a REST API.
+Single Next.js app: pages + API routes (Route Handlers) in one project.
 
 ## Structure
 
 ```
 ANSER-web-v2/
-├── frontend/   Next.js (TypeScript, App Router, Tailwind)
-└── backend/    Node.js + Express (TypeScript)
+└── frontend/   Next.js (TypeScript, App Router, Tailwind) — UI + /api/* backend
 ```
 
 ## Run locally
 
 ```bash
-# backend
-cd backend
-npm install
-npm run dev        # http://localhost:4000
-
-# frontend (separate terminal)
 cd frontend
 npm install
-npm run dev         # http://localhost:3000
+npm run dev         # http://localhost:3000 (UI + API on the same origin)
 ```
 
-Frontend calls the backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`).
+Copy `frontend/.env.local.example` to `frontend/.env.local` and set `JWT_SECRET`.
 
 ## Notes
 
 - The Flask apps (`ban-le`, `gateway`, `san-xuat` in `ANSER_ban-le_gateway/`) are a separate,
   unrelated codebase — this project only borrows product ideas/data model concepts from ANSER,
   it does not call into or depend on their code.
+- User data is currently stored in-memory (`frontend/src/lib/store/users.ts`) — resets on
+  every server restart. Will move to Neon Postgres later; the store's exported functions are
+  written so only that one file needs to change.
