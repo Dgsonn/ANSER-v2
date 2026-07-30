@@ -32,3 +32,26 @@ export const ArrowUpIcon = (p: IconProps) => base(<path d="M12 19V5m0 0-6 6m6-6 
 export const AlertTriangleIcon = (p: IconProps) => base(<path d="m12 3 9 16H3L12 3Zm0 6v4m0 3h.01" />, p);
 export const PlusIcon = (p: IconProps) => base(<path d="M12 5v14m-7-7h14" />, p);
 export const TruckIcon = (p: IconProps) => base(<path d="M3 16V6h11v10M3 16h11m0 0h3l3-4h-6v4Zm-9 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0Z" />, p);
+export const EditIcon = (p: IconProps) => base(<path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />, p);
+export const TrashIcon = (p: IconProps) => base(<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" />, p);
+export const XIcon = (p: IconProps) => base(<path d="M18 6 6 18M6 6l12 12" />, p);
+export const StaffIcon = (p: IconProps) =>
+  base(
+    <path d="M4 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7 5a4 4 0 0 1 3 3.86V20m-2-14a2.5 2.5 0 0 1 0 5" />,
+    p,
+  );
+export const SettingsIcon = (p: IconProps) =>
+  base(
+    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8-3a8 8 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a8 8 0 0 0-2-1.2L15 3H9l-.4 2.6a8 8 0 0 0-2.1 1.2l-2.4-1-2 3.4 2 1.6a8 8 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a8 8 0 0 0 2.1 1.2L9 21h6l.4-2.6a8 8 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.07-.4.1-.8.1-1.2Z" />,
+    p,
+  );
+export const ReceiptIcon = (p: IconProps) =>
+  base(
+    <path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Zm2 5h8m-8 4h8m-8 4h5" />,
+    p,
+  );
+export const UsersIcon = (p: IconProps) =>
+  base(
+    <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm9 10v-2a4 4 0 0 0-3-3.87M15 3.13a4 4 0 0 1 0 7.75" />,
+    p,
+  );

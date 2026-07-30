@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { authCookieOptions, COOKIE_NAME, signToken } from "@/lib/auth";
-import { createUser, findUserByEmail, toPublicUser } from "@/lib/store/users";
+import { authCookieOptions, COOKIE_NAME, signToken } from "@/server/auth";
+import { createUser, findUserByEmail, toPublicUser } from "@/server/store/users";
 
 export async function POST(request: Request) {
   const { firstName, lastName, email, phone, password } = await request.json().catch(() => ({}));
@@ -15,12 +15,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Mật khẩu phải có ít nhất 6 ký tự." }, { status: 400 });
   }
 
-  if (findUserByEmail(email)) {
+  if (await findUserByEmail(email)) {
     return NextResponse.json({ message: "Email đã được sử dụng." }, { status: 409 });
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = createUser({ firstName, lastName, email, phone, passwordHash });
+  const user = await createUser({ firstName, lastName, email, phone, passwordHash });
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, signToken(user.id), authCookieOptions);

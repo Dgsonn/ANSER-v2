@@ -1,0 +1,1 @@
+ALTER TABLE "automation_rules" ADD COLUMN "n8n_workflow_id" text;

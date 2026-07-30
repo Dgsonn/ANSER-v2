@@ -1,23 +1,34 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   BoltIcon,
   BoxIcon,
   ChartIcon,
-  FactoryIcon,
   HomeIcon,
+  ReceiptIcon,
+  SettingsIcon,
+  StaffIcon,
+  UsersIcon,
   WarehouseIcon,
 } from "@/components/dashboard/icons";
 
 const navItems = [
-  { label: "Trang chủ", icon: HomeIcon, href: "/dashboard", active: true },
-  { label: "Sản phẩm", icon: BoxIcon },
-  { label: "Quản lý kho", icon: WarehouseIcon },
-  { label: "Sản xuất", icon: FactoryIcon },
-  { label: "Báo cáo", icon: ChartIcon },
-  { label: "Tự động hoá", icon: BoltIcon },
+  { label: "Trang chủ", icon: HomeIcon, href: "/dashboard" },
+  { label: "Sản phẩm", icon: BoxIcon, href: "/dashboard/products" },
+  { label: "Quản lý kho", icon: WarehouseIcon, href: "/dashboard/inventory" },
+  { label: "Bán hàng", icon: ReceiptIcon, href: "/dashboard/sales" },
+  { label: "Khách hàng", icon: UsersIcon, href: "/dashboard/customers" },
+  { label: "Báo cáo", icon: ChartIcon, href: "/dashboard/reports" },
+  { label: "Tự động hoá", icon: BoltIcon, href: "/dashboard/automation" },
+  { label: "Nhân sự", icon: StaffIcon, href: "/dashboard/staff" },
+  { label: "Cài đặt", icon: SettingsIcon, href: "/dashboard/settings" },
 ];
 
 export default function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-white/[0.08] bg-white/[0.02] p-4 sm:flex">
       <Link href="/" className="mb-8 flex items-center gap-2 px-2 text-lg font-extrabold tracking-tight">
@@ -36,11 +47,21 @@ export default function Sidebar() {
               {item.label}
             </>
           );
-          return item.active ? (
+          const active = item.href
+            ? item.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname === item.href || pathname.startsWith(`${item.href}/`)
+            : false;
+
+          return item.href ? (
             <Link
               key={item.label}
               href={item.href}
-              className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600/20 to-sky-500/10 px-3 py-2.5 text-sm font-semibold text-white"
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                active
+                  ? "bg-gradient-to-r from-violet-600/20 to-sky-500/10 text-white"
+                  : "text-zinc-400 hover:bg-white/[0.05] hover:text-white"
+              }`}
             >
               {content}
             </Link>

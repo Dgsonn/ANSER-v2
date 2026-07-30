@@ -1,0 +1,1 @@
+ALTER TABLE "products" ALTER COLUMN "warehouse_id" SET NOT NULL;

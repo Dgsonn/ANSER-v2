@@ -1,0 +1,1 @@
+ALTER TABLE "warehouses" ADD COLUMN "notification_email" text;

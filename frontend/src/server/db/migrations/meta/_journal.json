@@ -1,0 +1,83 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1785227247419,
+      "tag": "0000_dizzy_iron_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785234963612,
+      "tag": "0001_good_sprite",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785237017411,
+      "tag": "0002_unusual_medusa",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785246735376,
+      "tag": "0003_huge_robbie_robertson",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785249428307,
+      "tag": "0004_heavy_fat_cobra",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785265812706,
+      "tag": "0005_warm_loki",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785300803244,
+      "tag": "0006_tranquil_secret_warriors",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785304971442,
+      "tag": "0007_quiet_robbie_robertson",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785372470354,
+      "tag": "0008_small_excalibur",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785373261558,
+      "tag": "0009_furry_white_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785376311224,
+      "tag": "0010_freezing_king_bedlam",
+      "breakpoints": true
+    }
+  ]
+}

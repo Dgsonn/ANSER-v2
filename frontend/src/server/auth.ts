@@ -7,6 +7,14 @@ export function signToken(userId: string) {
   return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: "7d" });
 }
 
+export function verifyToken(token: string): { sub: string } | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as { sub: string };
+  } catch {
+    return null;
+  }
+}
+
 export const authCookieOptions = {
   httpOnly: true as const,
   secure: process.env.NODE_ENV === "production",

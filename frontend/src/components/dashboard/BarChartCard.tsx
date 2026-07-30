@@ -1,10 +1,10 @@
-type DataPoint = { label: string; a: number; b: number };
+type DataPoint = { label: string; a: number; b?: number };
 
 type BarChartCardProps = {
   title: string;
   data: DataPoint[];
   legendA: string;
-  legendB: string;
+  legendB?: string;
   colorA?: string;
   colorB?: string;
 };
@@ -17,7 +17,8 @@ export default function BarChartCard({
   colorA = "bg-sky-500",
   colorB = "bg-violet-600",
 }: BarChartCardProps) {
-  const max = Math.max(...data.flatMap((d) => [d.a, d.b]), 1);
+  const hasB = data.some((d) => d.b !== undefined);
+  const max = Math.max(...data.flatMap((d) => (hasB ? [d.a, d.b ?? 0] : [d.a])), 1);
 
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5">
@@ -28,10 +29,12 @@ export default function BarChartCard({
             <span className={`h-2 w-2 rounded-full ${colorA}`} />
             {legendA}
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${colorB}`} />
-            {legendB}
-          </span>
+          {hasB && legendB && (
+            <span className="flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${colorB}`} />
+              {legendB}
+            </span>
+          )}
         </div>
       </div>
 
@@ -43,11 +46,13 @@ export default function BarChartCard({
               style={{ height: `${(d.a / max) * 100}%` }}
               title={`${legendA}: ${d.a}`}
             />
-            <div
-              className={`w-full rounded-t-md ${colorB}`}
-              style={{ height: `${(d.b / max) * 100}%` }}
-              title={`${legendB}: ${d.b}`}
-            />
+            {hasB && (
+              <div
+                className={`w-full rounded-t-md ${colorB}`}
+                style={{ height: `${((d.b ?? 0) / max) * 100}%` }}
+                title={`${legendB}: ${d.b ?? 0}`}
+              />
+            )}
           </div>
         ))}
       </div>

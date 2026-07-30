@@ -1,0 +1,121 @@
+{
+  "name": "Cảnh báo tồn kho thấp",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 6 }] }
+      },
+      "id": "ls-trigger",
+      "name": "Mỗi 6 giờ",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [180, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:3000/api/n8n/internal/warehouses",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "ls-warehouses",
+      "name": "Lấy danh sách kho",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "warehouses",
+        "options": {}
+      },
+      "id": "ls-split",
+      "name": "Tách từng kho",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://host.docker.internal:3000/api/n8n/internal/low-stock?warehouseId=' + $json.id }}",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "ls-fetch",
+      "name": "Kiểm tra tồn kho",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [{ "value1": "={{ $json.count }}", "operation": "larger", "value2": 0 }]
+        }
+      },
+      "id": "ls-if",
+      "name": "Có SP cần nhập?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1140, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst warehouse = $('Tách từng kho').item.json;\nconst items = data.items || [];\nconst rows = items.map(p => `<tr><td>${p.name}</td><td>${p.code}</td><td>${p.stock_quantity}</td><td>${p.threshold}</td></tr>`).join('');\nconst html = `<h2>🚨 Cảnh báo tồn kho thấp — ${warehouse.name}</h2><p>Có <b>${items.length}</b> sản phẩm dưới ngưỡng cảnh báo:</p><table border=\"1\" cellpadding=\"6\" cellspacing=\"0\"><tr><th>Sản phẩm</th><th>Mã</th><th>Còn lại</th><th>Ngưỡng</th></tr>${rows}</table><p style=\"color:#888\">ANSER Web Stock Alert — ${new Date().toISOString()}</p>`;\nreturn [{ json: {\n  email_to: warehouse.notification_email,\n  email_subject: `🚨 Cảnh báo tồn kho thấp — ${warehouse.name}`,\n  email_html: html,\n} }];"
+      },
+      "id": "ls-format",
+      "name": "Tạo cảnh báo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1380, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{ "value1": "={{ $json.email_to }}", "operation": "isNotEmpty" }]
+        }
+      },
+      "id": "ls-if-email",
+      "name": "Có email nhận?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1620, 180]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@anser.local",
+        "toEmail": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "html": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "id": "ls-email",
+      "name": "Gửi Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1860, 120]
+    }
+  ],
+  "connections": {
+    "Mỗi 6 giờ":         { "main": [[{ "node": "Lấy danh sách kho", "type": "main", "index": 0 }]] },
+    "Lấy danh sách kho": { "main": [[{ "node": "Tách từng kho",     "type": "main", "index": 0 }]] },
+    "Tách từng kho":     { "main": [[{ "node": "Kiểm tra tồn kho",  "type": "main", "index": 0 }]] },
+    "Kiểm tra tồn kho":  { "main": [[{ "node": "Có SP cần nhập?",   "type": "main", "index": 0 }]] },
+    "Có SP cần nhập?": {
+      "main": [
+        [{ "node": "Tạo cảnh báo", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Tạo cảnh báo":      { "main": [[{ "node": "Có email nhận?", "type": "main", "index": 0 }]] },
+    "Có email nhận?": {
+      "main": [
+        [{ "node": "Gửi Email", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

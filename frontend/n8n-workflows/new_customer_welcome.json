@@ -1,0 +1,76 @@
+{
+  "name": "Khách hàng mới → Welcome",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-customer",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "nc-webhook",
+      "name": "Nhận khách mới",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [180, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body : raw;\nconst name = body.name || '';\nconst notify_email = body.notify_email || '';\nconst html = `<h2>👋 Khách hàng mới!</h2><p>Tên: <b>${name}</b></p><p>SĐT: ${body.phone || 'Chưa có'}</p><p>Email: ${body.email || 'Chưa có'}</p><p>Địa chỉ: ${body.address || 'Chưa có'}</p>`;\nreturn [{ json: { name, notify_email, email_html: html } }];"
+      },
+      "id": "nc-format",
+      "name": "Tạo thông báo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{ "value1": "={{ $json.notify_email }}", "operation": "isNotEmpty" }]
+        }
+      },
+      "id": "nc-if-email",
+      "name": "Có email báo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@anser.local",
+        "toEmail": "={{ $json.notify_email }}",
+        "subject": "Khách hàng mới!",
+        "html": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "id": "nc-email",
+      "name": "Gửi Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true } }];"
+      },
+      "id": "nc-noop",
+      "name": "Không có email báo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 420]
+    }
+  ],
+  "connections": {
+    "Nhận khách mới": { "main": [[{ "node": "Tạo thông báo", "type": "main", "index": 0 }]] },
+    "Tạo thông báo":   { "main": [[{ "node": "Có email báo?", "type": "main", "index": 0 }]] },
+    "Có email báo?": {
+      "main": [
+        [{ "node": "Gửi Email", "type": "main", "index": 0 }],
+        [{ "node": "Không có email báo", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

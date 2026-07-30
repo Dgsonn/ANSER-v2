@@ -1,0 +1,27 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: anser-web-n8n
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5679}:5678"
+    environment:
+      - N8N_SECURE_COOKIE=false
+      - GENERIC_TIMEZONE=Asia/Ho_Chi_Minh
+      # N8N_SECURE_COOKIE=false cần cho HTTP (không phải HTTPS). Không có dòng này,
+      # n8n sẽ báo URL webhook theo cổng nội bộ (5678) thay vì cổng đã map ra host,
+      # khiến test thủ công bị sai URL.
+      - WEBHOOK_URL=http://localhost:${N8N_PORT:-5679}/
+    volumes:
+      - anser_web_n8n_data:/home/node/.n8n
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: anser-web-mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1026}:1025" # SMTP — n8n's Send Email node kết nối vào đây
+      - "${MAILHOG_WEB_PORT:-8026}:8025" # Web UI — xem "email đã gửi" tại localhost:8026
+
+volumes:
+  anser_web_n8n_data:

@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { authCookieOptions, COOKIE_NAME, signToken } from "@/lib/auth";
-import { findUserByEmail, toPublicUser } from "@/lib/store/users";
+import { authCookieOptions, COOKIE_NAME, signToken } from "@/server/auth";
+import { findUserByEmail, toPublicUser } from "@/server/store/users";
 
 export async function POST(request: Request) {
   const { email, password } = await request.json().catch(() => ({}));
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Thiếu email hoặc mật khẩu." }, { status: 400 });
   }
 
-  const user = findUserByEmail(email);
+  const user = await findUserByEmail(email);
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return NextResponse.json({ message: "Email hoặc mật khẩu không đúng." }, { status: 401 });
   }
