@@ -15,8 +15,24 @@ export async function GET(request: Request) {
   return NextResponse.json({ products });
 }
 
+/**
+ * Đọc giá vốn từ body.
+ *
+ * Trả `undefined` = không nhắc tới (giữ nguyên), `null` = CHƯA BIẾT, số = giá.
+ * Chuỗi rỗng từ form phải ra `null` chứ không phải 0 — `Number("")` bằng 0 sẽ
+ * ghi nhận "hàng không tốn đồng nào" và đẩy lãi gộp lên 100%.
+ */
+function parseCost(raw: unknown): number | null | "invalid" {
+  if (raw === undefined) return null;
+  if (raw === null || String(raw).trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : "invalid";
+}
+
 export async function POST(request: Request) {
-  const { name, category, unit, stock, price, warehouseId } = await request.json().catch(() => ({}));
+  const { name, category, unit, stock, price, cost, warehouseId } = await request
+    .json()
+    .catch(() => ({}));
 
   if (!name || !category || !unit || !warehouseId) {
     return NextResponse.json({ message: "Thiếu tên, danh mục, đơn vị hoặc kho của sản phẩm." }, { status: 400 });
@@ -34,6 +50,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Tồn kho/giá bán không hợp lệ." }, { status: 400 });
   }
 
-  const product = await createProduct({ name, category, unit, stock: stockNum, price: priceNum, warehouseId });
+  const costValue = parseCost(cost);
+  if (costValue === "invalid") {
+    return NextResponse.json({ message: "Giá vốn phải là số không âm." }, { status: 400 });
+  }
+
+  const product = await createProduct({
+    name,
+    category,
+    unit,
+    stock: stockNum,
+    price: priceNum,
+    cost: costValue,
+    warehouseId,
+  });
   return NextResponse.json({ product }, { status: 201 });
 }
