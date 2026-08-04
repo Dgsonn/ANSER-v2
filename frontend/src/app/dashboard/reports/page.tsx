@@ -1,4 +1,5 @@
 import BarChartCard from "@/components/dashboard/BarChartCard";
+import BrainProfitPanel from "@/components/dashboard/BrainProfitPanel";
 import StatCard from "@/components/dashboard/StatCard";
 import { BoltIcon, BoxIcon, ChartIcon, TruckIcon } from "@/components/dashboard/icons";
 import { getReportSummary } from "@/server/reports";
@@ -31,6 +32,8 @@ export default async function ReportsPage() {
       </div>
 
       <BarChartCard title="Doanh thu 7 ngày qua" data={dailyRevenue} legendA="Doanh thu" colorA="bg-emerald-500" />
+
+      <BrainProfitPanel />
 
       {byWarehouse.length > 1 && (
         <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">

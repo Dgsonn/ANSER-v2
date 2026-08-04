@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, XIcon } from "@/components/dashboard/icons";
+import InventoryAuditPanel from "@/components/dashboard/InventoryAuditPanel";
 import WarehouseSwitcher from "@/components/dashboard/WarehouseSwitcher";
 import type { InventoryTransactionWithProduct, TransactionType } from "@/server/store/inventory";
 import type { Product } from "@/server/store/products";
@@ -11,11 +12,22 @@ type FormState = {
   type: TransactionType;
   productId: string;
   quantity: string;
+  /** Chuỗi rỗng = CHƯA BIẾT giá vốn. Không được biến thành 0 khi gửi đi. */
+  unitCost: string;
   counterparty: string;
   note: string;
 };
 
-const emptyForm: FormState = { type: "import", productId: "", quantity: "1", counterparty: "", note: "" };
+const emptyForm: FormState = {
+  type: "import",
+  productId: "",
+  quantity: "1",
+  unitCost: "",
+  counterparty: "",
+  note: "",
+};
+
+const vnd = (n: number) => n.toLocaleString("vi-VN");
 
 function productStatus(stock: number) {
   if (stock <= 0) return "Hết hàng";
@@ -29,7 +41,7 @@ const statusStyles: Record<string, string> = {
   "Hết hàng": "bg-red-500/15 text-red-400",
 };
 
-type Tab = "stock" | "history";
+type Tab = "stock" | "history" | "audit";
 
 export default function InventoryPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -104,6 +116,9 @@ export default function InventoryPage() {
         type: form.type,
         productId: form.productId,
         quantity: Number(form.quantity),
+        // Chỉ phiếu nhập mới mang giá vốn. Bỏ trống -> null (chưa biết), KHÔNG
+        // phải 0 — 0 nghĩa là hàng không tốn đồng nào, đẩy lãi gộp lên 100%.
+        unitCost: form.type === "import" && form.unitCost.trim() !== "" ? Number(form.unitCost) : null,
         counterparty: form.counterparty || undefined,
         note: form.note || undefined,
       }),
@@ -117,7 +132,7 @@ export default function InventoryPage() {
       return;
     }
 
-    setForm((f) => ({ ...f, quantity: "1", counterparty: "", note: "" }));
+    setForm((f) => ({ ...f, quantity: "1", unitCost: "", counterparty: "", note: "" }));
     setModalOpen(false);
     await load();
   }
@@ -168,9 +183,20 @@ export default function InventoryPage() {
         >
           Lịch sử giao dịch
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("audit")}
+          className={`px-4 py-2.5 text-sm font-semibold transition-colors ${
+            tab === "audit" ? "border-b-2 border-sky-500 text-white" : "text-zinc-500 hover:text-zinc-300"
+          }`}
+        >
+          Kiểm sổ từ Excel
+        </button>
       </div>
 
-      {tab === "stock" ? (
+      {tab === "audit" ? (
+        <InventoryAuditPanel />
+      ) : tab === "stock" ? (
         <div className="flex flex-col gap-3">
           <p className="text-xs text-zinc-500">
             Số liệu tự tính từ lịch sử phiếu — chỉ xem, không sửa trực tiếp được ở bảng này.
@@ -184,13 +210,14 @@ export default function InventoryPage() {
                   <th className="px-5 py-3 font-medium">Tên sản phẩm</th>
                   <th className="px-5 py-3 font-medium">Kho</th>
                   <th className="px-5 py-3 font-medium">Tồn kho</th>
+                  <th className="px-5 py-3 font-medium">Giá vốn</th>
                   <th className="px-5 py-3 font-medium">Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
                 {products.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-8 text-center text-zinc-500">
+                    <td colSpan={6} className="px-5 py-8 text-center text-zinc-500">
                       Chưa có sản phẩm nào trong (các) kho đang chọn.
                     </td>
                   </tr>
@@ -204,6 +231,17 @@ export default function InventoryPage() {
                       <td className="px-5 py-3 text-zinc-400">{warehouseName(p.warehouseId)}</td>
                       <td className="px-5 py-3 text-zinc-400">
                         {p.stock} {p.unit}
+                      </td>
+                      {/* "Chưa có" phải trông KHÁC HẲN số 0 — nhìn nhầm hai thứ
+                          này là hiểu sai toàn bộ báo cáo lãi lỗ. */}
+                      <td className="px-5 py-3 text-zinc-400">
+                        {p.cost === null || p.cost === undefined ? (
+                          <span className="text-amber-500/80" title="Chưa nhập giá vốn — khác với giá vốn bằng 0">
+                            chưa có
+                          </span>
+                        ) : (
+                          `${vnd(p.cost)} ₫`
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[status]}`}>
@@ -228,6 +266,7 @@ export default function InventoryPage() {
                   <th className="px-5 py-3 font-medium">Sản phẩm</th>
                   <th className="px-5 py-3 font-medium">Kho</th>
                   <th className="px-5 py-3 font-medium">Số lượng</th>
+                  <th className="px-5 py-3 font-medium">Đơn giá vốn</th>
                   <th className="px-5 py-3 font-medium">Đối tác</th>
                   <th className="px-5 py-3 font-medium">Thời gian</th>
                 </tr>
@@ -235,7 +274,7 @@ export default function InventoryPage() {
               <tbody>
                 {transactions.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-zinc-500">
+                    <td colSpan={7} className="px-5 py-8 text-center text-zinc-500">
                       Chưa có giao dịch nào.
                     </td>
                   </tr>
@@ -256,6 +295,13 @@ export default function InventoryPage() {
                     </td>
                     <td className="px-5 py-3 text-zinc-400">{t.warehouseName}</td>
                     <td className="px-5 py-3 text-zinc-400">{t.quantity}</td>
+                    <td className="px-5 py-3 text-zinc-400">
+                      {t.unitCost === null || t.unitCost === undefined ? (
+                        <span className="text-zinc-600">—</span>
+                      ) : (
+                        `${vnd(t.unitCost)} ₫`
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-zinc-400">{t.counterparty || "—"}</td>
                     <td className="px-5 py-3 text-zinc-500">{new Date(t.createdAt).toLocaleString("vi-VN")}</td>
                   </tr>
@@ -329,6 +375,28 @@ export default function InventoryPage() {
                   className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-sky-500"
                 />
               </div>
+
+              {form.type === "import" && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-zinc-400">
+                    Đơn giá nhập (VND/đơn vị) — tuỳ chọn
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="Bỏ trống nếu chưa biết"
+                    value={form.unitCost}
+                    onChange={(e) => setForm((f) => ({ ...f, unitCost: e.target.value }))}
+                    className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-sky-500"
+                  />
+                  <p className="mt-1.5 text-xs text-zinc-500">
+                    Đây là giá vốn. Ghi càng đủ thì báo cáo lãi lỗ càng đáng tin —
+                    bỏ trống thì phần doanh thu của mặt hàng này bị loại khỏi phép
+                    tính lãi thay vì bị coi là lãi 100%.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-zinc-400">

@@ -1,3 +1,4 @@
+import BrainChat from "@/components/dashboard/BrainChat";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 
@@ -9,6 +10,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Topbar />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
+      {/* Nút nổi thay vì một mục sidebar riêng: câu hỏi thường nảy ra KHI đang
+          xem một trang cụ thể, bắt rời trang để đi hỏi là làm mất ngữ cảnh. */}
+      <BrainChat />
     </div>
   );
 }
