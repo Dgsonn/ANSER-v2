@@ -1,0 +1,9 @@
+# Repo này không có .gitignore ở gốc — chỉ có frontend/.gitignore. Nghĩa là mọi
+# file bí mật đặt ở THƯ MỤC GỐC đều không được che, và `git add .` sẽ commit
+# thẳng lên. File này bịt lỗ đó.
+.env
+.env.*
+!.env.example
+
+node_modules/
+.DS_Store
