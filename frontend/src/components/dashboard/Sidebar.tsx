@@ -20,6 +20,7 @@ const navItems = [
   { label: "Quản lý kho", icon: WarehouseIcon, href: "/dashboard/inventory" },
   { label: "Bán hàng", icon: ReceiptIcon, href: "/dashboard/sales" },
   { label: "Khách hàng", icon: UsersIcon, href: "/dashboard/customers" },
+  { label: "Tài liệu", icon: ReceiptIcon, href: "/dashboard/documents" },
   { label: "Báo cáo", icon: ChartIcon, href: "/dashboard/reports" },
   { label: "Tự động hoá", icon: BoltIcon, href: "/dashboard/automation" },
   { label: "Nhân sự", icon: StaffIcon, href: "/dashboard/staff" },
