@@ -27,7 +27,9 @@ export type BrainErrorKind =
   | "not_configured" // thiếu BRAIN_URL — lỗi cấu hình, không phải lỗi chạy
   | "unreachable" // không nối được (chưa bật, sập, sai URL)
   | "timeout" // nhận request nhưng không trả lời kịp
-  | "overloaded" // Brain tự báo bận (503) — CÓ THỂ thử lại
+  | "overloaded" // Brain tự báo bận (503 + Retry-After) — CÓ THỂ thử lại
+  | "not_ready" // 503 KHÔNG kèm Retry-After: thiếu thư viện / chưa nạp model.
+  //              Chờ vô ích — phải đi sửa cấu hình.
   | "unauthorized" // sai/thiếu BRAIN_API_TOKEN
   | "bad_request" // ta gửi sai (4xx)
   | "bad_response" // Brain trả nội dung không đọc được
@@ -79,6 +81,7 @@ export function brainErrorToHttp(error: unknown): {
     unreachable: 502,
     timeout: 504,
     overloaded: 503,
+    not_ready: 503,
     unauthorized: 502, // lỗi cấu hình GIỮA Body và Brain — không phải client sai
     bad_request: 400,
     bad_response: 502,
@@ -161,7 +164,7 @@ function transportError(error: unknown, url: string, path: string, op: Op): Brai
 async function callBrain<T>(
   path: string,
   op: Op,
-  init: { method: "GET" | "POST"; body?: unknown; identity?: BrainIdentity },
+  init: { method: "GET" | "POST" | "DELETE"; body?: unknown; identity?: BrainIdentity },
 ): Promise<T> {
   const url = brainUrl(path);
   let response: Response;
@@ -187,11 +190,35 @@ async function parseResponse<T>(response: Response, path: string): Promise<T> {
     // 503 kèm Retry-After là tín hiệu điều tiết tải CÓ CHỦ ĐÍCH của Brain
     // (ConcurrencyGuard), không phải sự cố. Giữ nguyên nghĩa để UI nói đúng.
     if (response.status === 503) {
+      // HAI loại 503 khác hẳn nhau, và gộp chúng làm một là bảo người dùng
+      // "thử lại sau ít giây" cho một dịch vụ sẽ KHÔNG BAO GIỜ tự sẵn sàng:
+      //
+      //   - CÓ Retry-After  -> ConcurrencyGuard điều tiết tải. Chờ là hết.
+      //   - KHÔNG Retry-After -> một thành phần chưa dựng được (thiếu thư viện,
+      //     chưa nạp model). Chờ bao lâu cũng vô ích; phải đi sửa cấu hình.
+      //
+      // Phát hiện khi chạy thật: kho tri thức chưa khởi tạo trả 503, Body hiện
+      // "Brain đang bận" và không có gì cho thấy nguyên nhân (05/08/2026).
       const retryAfter = Number(response.headers.get("Retry-After"));
-      throw new BrainError("overloaded", "Brain đang bận, thử lại sau ít giây.", {
-        status: 503,
-        retryAfterSeconds: Number.isFinite(retryAfter) ? retryAfter : undefined,
-      });
+      if (Number.isFinite(retryAfter) && retryAfter > 0) {
+        throw new BrainError("overloaded", "Brain đang bận, thử lại sau ít giây.", {
+          status: 503,
+          retryAfterSeconds: retryAfter,
+        });
+      }
+      const chiTiet = (await response.text().catch(() => "")).slice(0, 500);
+      let ly = chiTiet;
+      try {
+        const parsed = JSON.parse(chiTiet) as { detail?: unknown };
+        if (typeof parsed.detail === "string") ly = parsed.detail;
+      } catch {
+        /* không phải JSON — giữ nguyên văn */
+      }
+      throw new BrainError(
+        "not_ready",
+        ly || "Một thành phần của Brain chưa sẵn sàng.",
+        { status: 503 },
+      );
     }
     if (response.status === 401 || response.status === 403) {
       throw new BrainError("unauthorized", "BRAIN_API_TOKEN sai hoặc thiếu.", {
@@ -406,6 +433,157 @@ export async function auditInventory(req: {
   });
 }
 
+
+/**
+ * Gửi multipart lên Brain. Ba đường dùng chung: nạp bảng N-X-T, nạp tài liệu
+ * vào kho tri thức, và đọc ảnh hoá đơn nhà xe.
+ *
+ * KHÔNG đặt Content-Type: fetch phải tự sinh boundary. Đặt tay là hỏng — server
+ * không tách được các phần và báo "thiếu file", một lỗi rất khó đoán ra.
+ */
+async function uploadToBrain<T>(path: string, form: FormData): Promise<T> {
+  const url = brainUrl(path);
+  const headers: Record<string, string> = {};
+  const token = process.env.BRAIN_API_TOKEN;
+  if (token) headers["X-API-Token"] = token;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: form,
+      signal: AbortSignal.timeout(TIMEOUT_MS.upload),
+      cache: "no-store",
+    });
+  } catch (error) {
+    throw transportError(error, url, path, "upload");
+  }
+  return parseResponse<T>(response, path);
+}
+
+// ---------------------------------------------------------------------------
+// Hoá đơn cước vận tải — ảnh chụp của nhà xe
+// ---------------------------------------------------------------------------
+
+export type BrainFreightInvoice = {
+  success: boolean;
+  backend?: string;
+  error?: string;
+  invoice?: {
+    carrier_name: string | null;
+    carrier_tax_code: string | null;
+    invoice_no: string | null;
+    invoice_date: string | null;
+    origin: string | null;
+    destination: string | null;
+    vehicle_type: string | null;
+    plate_number: string | null;
+    charges: Array<{ kind: string; description: string; quantity: number; unit_price: number }>;
+    vat_rate: number | null;
+    subtotal: number | null;
+    vat_amount: number | null;
+    total: number | null;
+  };
+  validation?: {
+    ok: boolean;
+    checks_performed: string[];
+    issues: string[];
+    computed: { subtotal: number; vat_amount: number | null; total: number };
+    stated: { subtotal: number | null; vat_amount: number | null; total: number | null };
+    missing_required: string[];
+  };
+  /**
+   * `true` khi lớp kiểm số học KHÔNG xác nhận được. Bao gồm cả trường hợp
+   * "không kiểm được phép nào" — ảnh mờ đọc ra rỗng KHÔNG phải hoá đơn sạch.
+   */
+  needs_manual_review?: boolean;
+};
+
+/**
+ * Đọc ảnh hoá đơn nhà xe. Con số VLM đọc ra CHƯA đáng tin — `validation` mới là
+ * chỗ Brain tính lại toàn bộ bằng code và đối chiếu với số in trên tờ giấy.
+ * Giao diện phải hiện `needs_manual_review` chứ không được lặng lẽ dùng số.
+ */
+export async function readFreightInvoice(file: File): Promise<BrainFreightInvoice> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return uploadToBrain<BrainFreightInvoice>("/ocr/freight", form);
+}
+
+// ---------------------------------------------------------------------------
+// Kho tri thức — tài liệu nội bộ của khách
+// ---------------------------------------------------------------------------
+
+export type BrainDocument = {
+  source: string;
+  doc_type: string;
+  effective_from: string | null;
+  effective_to: string | null;
+  chunks: number;
+};
+
+export type BrainIngestResult = {
+  source: string;
+  chunks: number;
+  replaced: boolean;
+  skipped_unchanged: boolean;
+  warnings: string[];
+  pages: number | null;
+};
+
+export type BrainPassage = {
+  text: string;
+  source: string;
+  score: number;
+  heading: string;
+  cite: string;
+  effective_from: string | null;
+  effective_to: string | null;
+};
+
+/**
+ * `workspaceId` là hàng rào ngăn tài liệu khách này lọt vào câu trả lời cho
+ * khách kia. Brain từ chối mọi lời gọi thiếu nó — cố ý không có giá trị mặc
+ * định, vì quên truyền phải hỏng ngay chứ không rò lặng lẽ.
+ */
+export async function uploadKnowledgeDocument(
+  file: File,
+  opts: { workspaceId: string; effectiveFrom?: string; effectiveTo?: string; docType?: string },
+): Promise<BrainIngestResult> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("workspace_id", opts.workspaceId);
+  if (opts.effectiveFrom) form.append("effective_from", opts.effectiveFrom);
+  if (opts.effectiveTo) form.append("effective_to", opts.effectiveTo);
+  if (opts.docType) form.append("doc_type", opts.docType);
+  return uploadToBrain<BrainIngestResult>("/knowledge/documents", form);
+}
+
+export async function listKnowledgeDocuments(workspaceId: string): Promise<BrainDocument[]> {
+  const q = new URLSearchParams({ workspace_id: workspaceId });
+  const r = await callBrain<{ documents: BrainDocument[] }>(
+    `/knowledge/documents?${q}`, "tool", { method: "GET" },
+  );
+  return r.documents ?? [];
+}
+
+export async function deleteKnowledgeDocument(
+  workspaceId: string, source: string,
+): Promise<void> {
+  const q = new URLSearchParams({ workspace_id: workspaceId, source });
+  await callBrain(`/knowledge/documents?${q}`, "tool", { method: "DELETE" });
+}
+
+export async function searchKnowledge(
+  workspaceId: string, query: string, topK = 5,
+): Promise<{ passages: BrainPassage[]; empty_reason: string | null }> {
+  return callBrain("/knowledge/search", "tool", {
+    method: "POST",
+    body: { workspace_id: workspaceId, query, top_k: topK },
+  });
+}
+
 export type BrainInventoryImport = {
   import: {
     ok: boolean;
@@ -457,29 +635,8 @@ export async function importInventoryFile(
   file: File,
   opts: { sheet?: string } = {},
 ): Promise<BrainInventoryImport> {
-  const url = brainUrl("/tools/inventory-import");
   const form = new FormData();
   form.append("file", file, file.name);
   if (opts.sheet) form.append("sheet", opts.sheet);
-
-  // KHÔNG đặt Content-Type: fetch phải tự sinh boundary cho multipart. Đặt tay
-  // là hỏng — server không tách được các phần và báo "thiếu file".
-  const headers: Record<string, string> = {};
-  const token = process.env.BRAIN_API_TOKEN;
-  if (token) headers["X-API-Token"] = token;
-
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: form,
-      signal: AbortSignal.timeout(TIMEOUT_MS.upload),
-      cache: "no-store",
-    });
-  } catch (error) {
-    throw transportError(error, url, "/tools/inventory-import", "upload");
-  }
-
-  return parseResponse<BrainInventoryImport>(response, "/tools/inventory-import");
+  return uploadToBrain<BrainInventoryImport>("/tools/inventory-import", form);
 }
