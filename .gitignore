@@ -1,0 +1,8 @@
+# Repo gốc (D:\ANSER-web-v2) không có .gitignore riêng — chỉ frontend/ có.
+# File này che các bí mật nếu ai đó lỡ đặt chúng ở thư mục gốc thay vì trong frontend/.
+.env
+.env.*
+!.env.example
+
+node_modules/
+.DS_Store
