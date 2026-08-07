@@ -1,7 +1,7 @@
 import { desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { automationRules } from "@/server/db/schema";
-import { listProducts, LOW_STOCK_THRESHOLD } from "@/server/store/products";
+import { listProducts, LOW_STOCK_THRESHOLD, type Product } from "@/server/store/products";
 
 export type AutomationRule = typeof automationRules.$inferSelect;
 
@@ -78,16 +78,14 @@ export type AutomationAlert = {
   thresholdQty: number;
 };
 
-export async function evaluateAlerts(warehouseIds?: string[]): Promise<AutomationAlert[]> {
-  const rules = (await listRules(warehouseIds)).filter(
-    (rule) => rule.enabled && rule.type === "low_stock_alert",
-  );
-  if (rules.length === 0) return [];
-
-  const products = await listProducts({ warehouseIds });
+// Tách riêng phần tính toán thuần (không gọi DB) để nơi nào đã có sẵn products/rules trong tay
+// (vd getReportSummary()) tái dùng được luôn, khỏi phải fetch lại — evaluateAlerts() bên dưới
+// vẫn là bản đầy đủ (tự fetch) cho những chỗ chưa có sẵn dữ liệu.
+export function computeAlerts(products: Product[], rules: AutomationRule[]): AutomationAlert[] {
+  const activeRules = rules.filter((rule) => rule.enabled && rule.type === "low_stock_alert");
   const alerts: AutomationAlert[] = [];
 
-  for (const rule of rules) {
+  for (const rule of activeRules) {
     const threshold = rule.thresholdQty ?? LOW_STOCK_THRESHOLD;
     const matching = products.filter(
       (product) =>
@@ -109,4 +107,11 @@ export async function evaluateAlerts(warehouseIds?: string[]): Promise<Automatio
   }
 
   return alerts;
+}
+
+export async function evaluateAlerts(warehouseIds?: string[]): Promise<AutomationAlert[]> {
+  const rules = await listRules(warehouseIds);
+  if (!rules.some((rule) => rule.enabled && rule.type === "low_stock_alert")) return [];
+  const products = await listProducts({ warehouseIds });
+  return computeAlerts(products, rules);
 }
