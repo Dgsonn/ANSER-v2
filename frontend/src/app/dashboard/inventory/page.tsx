@@ -127,7 +127,9 @@ export default function InventoryPage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Quản lý kho</h1>
-          <p className="mt-1 text-sm text-zinc-400">Theo dõi tồn kho và lịch sử giao dịch nhập/xuất.</p>
+          <p className="mt-1 text-sm text-zinc-400">
+            Tồn kho chỉ đổi qua phiếu nhập/xuất bên dưới — không sửa tay được, luôn khớp với lịch sử giao dịch.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <WarehouseSwitcher
@@ -169,7 +171,11 @@ export default function InventoryPage() {
       </div>
 
       {tab === "stock" ? (
-        <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-zinc-500">
+            Số liệu tự tính từ lịch sử phiếu — chỉ xem, không sửa trực tiếp được ở bảng này.
+          </p>
+          <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -209,6 +215,7 @@ export default function InventoryPage() {
                 })}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       ) : (

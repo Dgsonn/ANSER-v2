@@ -26,11 +26,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
+  // Tồn kho KHÔNG sửa được qua route này — chỉ thay đổi qua phiếu nhập/xuất ở Quản lý kho
+  // (createTransaction() dùng db.transaction() để đồng bộ với inventoryTransactions), tránh
+  // sửa tay làm tồn kho lệch khỏi lịch sử giao dịch thật.
   const patch: Partial<{
     name: string;
     category: string;
     unit: string;
-    stock: number;
     price: number;
     warehouseId: string;
   }> = {};
@@ -38,13 +40,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.category !== undefined) patch.category = body.category;
   if (body.unit !== undefined) patch.unit = body.unit;
   if (body.warehouseId !== undefined) patch.warehouseId = body.warehouseId;
-  if (body.stock !== undefined) {
-    const stockNum = Number(body.stock);
-    if (!Number.isFinite(stockNum) || stockNum < 0) {
-      return NextResponse.json({ message: "Tồn kho không hợp lệ." }, { status: 400 });
-    }
-    patch.stock = stockNum;
-  }
   if (body.price !== undefined) {
     const priceNum = Number(body.price);
     if (!Number.isFinite(priceNum) || priceNum < 0) {

@@ -105,14 +105,22 @@ export default function ProductsPage() {
     setSubmitting(true);
     setError(null);
 
-    const payload = {
-      name: form.name,
-      category: form.category,
-      unit: form.unit,
-      stock: Number(form.stock),
-      price: Number(form.price),
-      warehouseId: form.warehouseId,
-    };
+    const payload = editingId
+      ? {
+          name: form.name,
+          category: form.category,
+          unit: form.unit,
+          price: Number(form.price),
+          warehouseId: form.warehouseId,
+        }
+      : {
+          name: form.name,
+          category: form.category,
+          unit: form.unit,
+          stock: Number(form.stock),
+          price: Number(form.price),
+          warehouseId: form.warehouseId,
+        };
 
     const res = await fetch(editingId ? `/api/products/${editingId}` : "/api/products", {
       method: editingId ? "PATCH" : "POST",
@@ -143,7 +151,9 @@ export default function ProductsPage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Sản phẩm</h1>
-          <p className="mt-1 text-sm text-zinc-400">Quản lý danh mục sản phẩm và tồn kho hiện tại.</p>
+          <p className="mt-1 text-sm text-zinc-400">
+            Quản lý danh mục, giá bán và thông tin sản phẩm — đổi tồn kho ở trang Quản lý kho.
+          </p>
         </div>
         <button
           onClick={openCreate}
@@ -310,15 +320,23 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-zinc-400">Tồn kho</label>
+                  <label className="mb-1.5 block text-xs font-semibold text-zinc-400">
+                    Tồn kho {editingId && <span className="font-normal normal-case text-zinc-600">(ban đầu)</span>}
+                  </label>
                   <input
                     required
+                    disabled={Boolean(editingId)}
                     type="number"
                     min={0}
                     value={form.stock}
                     onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
-                    className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-sky-500"
+                    className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-sky-500 disabled:cursor-not-allowed disabled:text-zinc-500"
                   />
+                  {editingId && (
+                    <p className="mt-1.5 text-[11px] text-zinc-500">
+                      Đổi tồn kho qua Quản lý kho → Tạo phiếu nhập/xuất.
+                    </p>
+                  )}
                 </div>
               </div>
 
