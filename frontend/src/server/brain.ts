@@ -403,20 +403,32 @@ export type BrainInventoryLine = {
   closing_value?: number | null;
 };
 
+/**
+ * Một phát hiện. HÌNH DẠNG DÙNG CHUNG cho mọi lớp kiểm của Brain — tồn kho,
+ * công nợ, thuế suất, đối chiếu hai kỳ (`src/core/findings.py`). Nhờ vậy giao
+ * diện chỉ cần MỘT component để hiển thị, và Brain thêm phép kiểm mới không kéo
+ * theo việc sửa Body.
+ *
+ * `money_impact === null` KHÁC `=== 0`: null là "chưa quy ra tiền được", 0 là
+ * "quy rồi, bằng không". Hiển thị null thành "0đ" là bịa ra một kết luận.
+ */
+export type BrainFinding = {
+  kind: string;
+  severity: "cao" | "trung bình" | "thấp";
+  code: string | null;
+  product: string | null;
+  unit?: string | null;
+  title: string;
+  evidence: Record<string, unknown>;
+  money_impact: number | null;
+  suggestion: string;
+};
+
 export type BrainInventoryAudit = {
   warehouse: string;
   period: { start: string | null; end: string | null; days: number };
   summary: Record<string, number | null>;
-  findings: Array<{
-    kind: string;
-    severity: "cao" | "trung bình" | "thấp";
-    code: string | null;
-    product: string | null;
-    title: string;
-    evidence: Record<string, unknown>;
-    money_impact: number | null;
-    suggestion: string;
-  }>;
+  findings: BrainFinding[];
   explain: Record<string, unknown>;
   warnings: string[];
 };
@@ -639,4 +651,186 @@ export async function importInventoryFile(
   form.append("file", file, file.name);
   if (opts.sheet) form.append("sheet", opts.sheet);
   return uploadToBrain<BrainInventoryImport>("/tools/inventory-import", form);
+}
+
+// ---------------------------------------------------------------------------
+// Công nợ — danh sách khách hàng / nhà cung cấp
+// ---------------------------------------------------------------------------
+
+export type BrainPartner = {
+  code: string;
+  name: string;
+  address: string;
+  /** `null` = CHƯA BIẾT số dư, không phải bằng 0. */
+  balance: number | null;
+  tax_id: string;
+  phone: string;
+  role: string;
+};
+
+export type BrainPartnerAudit = {
+  findings: BrainFinding[];
+  summary: {
+    số_khách_hàng: number;
+    số_nhà_cung_cấp: number;
+    tổng_phải_thu: number;
+    tổng_phải_trả: number;
+    khách_có_số_dư: number;
+    số_phát_hiện: number;
+    /**
+     * Những thứ Brain CỐ Ý không phân tích, kèm lý do. Giao diện phải hiện ra —
+     * người đọc một bảng công nợ mà không thấy dòng này sẽ mặc định là đã có
+     * phân tích tuổi nợ.
+     */
+    không_phân_tích_được: string[];
+    phải_thu_quy_ra_ngày?: number;
+  };
+};
+
+export type BrainPartnerImport = {
+  import: {
+    ok: boolean;
+    file_name: string | null;
+    role: string;
+    rows_parsed: number;
+    warnings: string[];
+    checks: Record<string, unknown>;
+    partners: BrainPartner[];
+  };
+  audit: BrainPartnerAudit | null;
+  audit_skipped_reason: string | null;
+};
+
+/**
+ * Tải danh sách khách hàng hoặc nhà cung cấp (.xlsx MISA) lên Brain.
+ *
+ * `role` để trống thì Brain tự đoán từ tiêu đề file — hai bảng chỉ khác nhau ở
+ * chữ trong tiêu đề cột mã.
+ */
+export async function importPartnerFile(
+  file: File,
+  opts: { sheet?: string; role?: string } = {},
+): Promise<BrainPartnerImport> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  if (opts.sheet) form.append("sheet", opts.sheet);
+  if (opts.role) form.append("role", opts.role);
+  return uploadToBrain<BrainPartnerImport>("/tools/partner-import", form);
+}
+
+/** Soi công nợ từ số dư đã có sẵn (không qua file). */
+export async function auditPartners(req: {
+  customers: Array<Partial<BrainPartner> & { code: string }>;
+  suppliers?: Array<Partial<BrainPartner> & { code: string }>;
+  cogs_per_day?: number;
+}): Promise<BrainPartnerAudit> {
+  return callBrain<BrainPartnerAudit>("/tools/partner-audit", "tool", {
+    method: "POST",
+    body: req,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Thuế suất GTGT — danh mục hàng hoá
+// ---------------------------------------------------------------------------
+
+export type BrainProduct = {
+  code: string;
+  name: string;
+  /** Cột "Giảm 2% thuế suất thuế GTGT" của MISA. */
+  vat_flag: string;
+  group: string;
+  unit: string;
+  qty: number | null;
+  value: number | null;
+};
+
+export type BrainVatCatalogAudit = {
+  findings: BrainFinding[];
+  summary: {
+    số_mã: number;
+    chưa_gắn_cờ: number;
+    "tra_ra_8%": number;
+    "tra_ra_10%": number;
+    không_tra_được: number;
+    hiệu_lực_từ: string;
+    hiệu_lực_đến: string;
+    căn_cứ: string;
+    /** Bảng tra là ĐỀ XUẤT. Câu này phải luôn hiện cạnh kết quả. */
+    lưu_ý: string;
+  };
+};
+
+export type BrainProductImport = {
+  import: {
+    ok: boolean;
+    file_name: string | null;
+    rows_parsed: number;
+    warnings: string[];
+    checks: Record<string, unknown>;
+    products: BrainProduct[];
+  };
+  audit: BrainVatCatalogAudit | null;
+  audit_skipped_reason: string | null;
+};
+
+export async function importProductFile(
+  file: File,
+  opts: { sheet?: string } = {},
+): Promise<BrainProductImport> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  if (opts.sheet) form.append("sheet", opts.sheet);
+  return uploadToBrain<BrainProductImport>("/tools/product-import", form);
+}
+
+// ---------------------------------------------------------------------------
+// Đối chiếu hai lần xuất cùng một kỳ
+// ---------------------------------------------------------------------------
+
+export type BrainPeriodSide = {
+  lines: BrainInventoryLine[];
+  warehouse?: string;
+  period_start?: string | null;
+  period_end?: string | null;
+};
+
+export type BrainPeriodDiff = {
+  findings: BrainFinding[];
+  /** KHÔNG rỗng nghĩa là Brain TỪ CHỐI so — khác kho, khác ngày bắt đầu, nhầm thứ tự. */
+  warnings: string[];
+  summary: {
+    kho: string;
+    kỳ_bắt_đầu: string | null;
+    bản_trước_đến: string | null;
+    bản_sau_đến: string | null;
+    số_mã_bản_trước: number;
+    số_mã_bản_sau: number;
+    so_sánh_được: boolean;
+    số_mã_so_được?: number;
+    số_phát_hiện?: number;
+    có_sửa_hồi_tố?: boolean;
+    tổng_tiền_ảnh_hưởng?: number;
+  };
+};
+
+/**
+ * So hai lần xuất CÙNG một kỳ để tìm chứng từ bị sửa sau khi đã báo cáo.
+ *
+ * Đây là phép kiểm mà không bản báo cáo đơn lẻ nào làm được: sổ hôm nay hợp lệ,
+ * sổ tháng trước cũng hợp lệ, nhưng hai bản kể hai câu chuyện khác nhau về cùng
+ * một quãng thời gian. Kỳ dài hơn mà số xuất luỹ kế GIẢM là điều thời gian
+ * không cho phép.
+ *
+ * `truoc` phải là bản xuất SỚM hơn. Truyền ngược thì Brain từ chối so và nói rõ
+ * là nhầm thứ tự, chứ không im lặng cho ra kết quả vô nghĩa.
+ */
+export async function comparePeriods(
+  truoc: BrainPeriodSide,
+  sau: BrainPeriodSide,
+): Promise<BrainPeriodDiff> {
+  return callBrain<BrainPeriodDiff>("/tools/period-diff", "tool", {
+    method: "POST",
+    body: { truoc, sau },
+  });
 }
