@@ -54,6 +54,7 @@ export async function createInvoice(input: {
       productName: string;
       unit: string;
       unitPrice: number;
+      unitCost: number | null;
       quantity: number;
       lineTotal: number;
       warehouseId: string;
@@ -74,6 +75,11 @@ export async function createInvoice(input: {
         productName: product.name,
         unit: product.unit,
         unitPrice: product.price,
+        // CHỤP LẠI giá vốn tại thời điểm bán. Giá vốn trôi theo mỗi lần nhập
+        // hàng, nên đọc `products.cost` lúc làm báo cáo là lấy giá HÔM NAY
+        // gán cho đơn bán sáu tháng trước — lãi gộp sai mà không ai thấy.
+        // `null` giữ nguyên là chưa biết, không quy về 0.
+        unitCost: product.cost ?? null,
         quantity,
         lineTotal: product.price * quantity,
         warehouseId: product.warehouseId,
@@ -99,6 +105,7 @@ export async function createInvoice(input: {
         productName: item.productName,
         unit: item.unit,
         unitPrice: item.unitPrice,
+        unitCost: item.unitCost,
         quantity: item.quantity,
         lineTotal: item.lineTotal,
       });
@@ -112,6 +119,9 @@ export async function createInvoice(input: {
         productId: item.productId,
         type: "export",
         quantity: item.quantity,
+        // `unitCost` LUÔN là giá vốn, kể cả ở dòng xuất — không bao giờ là giá
+        // bán. Ghi giá bán vào đây là biến sổ kho thành sổ doanh thu.
+        unitCost: item.unitCost,
         counterparty: input.customerName,
         note: `Xuất theo hoá đơn bán hàng`,
       });

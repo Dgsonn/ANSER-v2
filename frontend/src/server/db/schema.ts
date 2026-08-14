@@ -45,6 +45,11 @@ export const products = pgTable("products", {
   unit: text("unit").notNull().default("Cái"),
   stock: integer("stock").notNull().default(0),
   price: integer("price").notNull().default(0),
+  // Giá vốn đơn vị hiện hành (VND). NULLABLE có chủ đích: `null` = CHƯA BIẾT,
+  // khác hẳn 0 = "hàng không tốn đồng nào". Không có phân biệt này thì báo cáo
+  // lãi lỗ sẽ coi mọi mặt hàng chưa nhập giá vốn là lãi 100% — con số sai mà
+  // nghe rất xuôi tai, đúng loại lỗi không ai phát hiện tới lúc quyết toán.
+  cost: integer("cost"),
   warehouseId: uuid("warehouse_id")
     .notNull()
     .references(() => warehouses.id),
@@ -59,6 +64,10 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
     .references(() => products.id, { onDelete: "cascade" }),
   type: text("type").notNull(), // "import" | "export"
   quantity: integer("quantity").notNull(),
+  // Đơn giá của chính lần nhập/xuất này (VND). Đây là nguồn giá vốn ĐÁNG TIN
+  // NHẤT: nó gắn với một lô cụ thể, không phải con số bình quân trôi theo thời
+  // gian như `products.cost`. `null` = phiếu chưa ghi giá.
+  unitCost: integer("unit_cost"),
   counterparty: text("counterparty"),
   note: text("note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -96,6 +105,10 @@ export const salesInvoiceItems = pgTable("sales_invoice_items", {
   unitPrice: integer("unit_price").notNull(),
   quantity: integer("quantity").notNull(),
   lineTotal: integer("line_total").notNull(),
+  // Giá vốn đơn vị TẠI THỜI ĐIỂM BÁN — snapshot cùng lý do với `unitPrice`:
+  // giá vốn của sản phẩm đổi theo từng lô nhập, nhưng lãi gộp của hoá đơn cũ
+  // phải giữ nguyên. `null` = chưa biết giá vốn lúc bán.
+  unitCost: integer("unit_cost"),
 });
 
 // Luôn chỉ có đúng 1 dòng (singleton) — xem ensureCompanySettingsRow() trong lib/store/settings.ts.

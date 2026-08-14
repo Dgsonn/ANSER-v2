@@ -17,7 +17,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { productId, type, quantity, counterparty, note } = await request.json().catch(() => ({}));
+  const { productId, type, quantity, unitCost, counterparty, note } = await request
+    .json()
+    .catch(() => ({}));
 
   if (!productId || (type !== "import" && type !== "export")) {
     return NextResponse.json({ message: "Thiếu sản phẩm hoặc loại phiếu không hợp lệ." }, { status: 400 });
@@ -27,11 +29,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Số lượng phải lớn hơn 0." }, { status: 400 });
   }
 
+  // Bỏ trống đơn giá = CHƯA BIẾT giá vốn, không phải 0. Chuỗi rỗng từ form phải
+  // ra `null`, chứ Number("") = 0 sẽ ghi nhận "hàng không tốn đồng nào" và đẩy
+  // lãi gộp lên 100%.
+  let unitCostNum: number | null = null;
+  if (unitCost !== undefined && unitCost !== null && String(unitCost).trim() !== "") {
+    unitCostNum = Number(unitCost);
+    if (!Number.isFinite(unitCostNum) || unitCostNum < 0) {
+      return NextResponse.json({ message: "Đơn giá phải là số không âm." }, { status: 400 });
+    }
+  }
+
   try {
     const transaction = await createTransaction({
       productId,
       type,
       quantity: quantityNum,
+      unitCost: unitCostNum,
       counterparty,
       note,
     });
@@ -40,6 +54,10 @@ export async function POST(request: Request) {
     if (error instanceof InsufficientStockError) {
       return NextResponse.json({ message: error.message }, { status: 409 });
     }
-    return NextResponse.json({ message: "Không tìm thấy sản phẩm." }, { status: 404 });
+    // Trước đây MỌI lỗi đều bị gán "Không tìm thấy sản phẩm" + 404 — kể cả lỗi
+    // DB hay lỗi xác thực. Người dùng đi sửa sai chỗ, còn lỗi thật thì mất dấu.
+    const message = error instanceof Error ? error.message : "Lỗi không xác định.";
+    const notFound = message.includes("Không tìm thấy sản phẩm");
+    return NextResponse.json({ message }, { status: notFound ? 404 : 400 });
   }
 }

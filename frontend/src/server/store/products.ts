@@ -55,6 +55,8 @@ export async function createProduct(input: {
   unit: string;
   stock: number;
   price: number;
+  /** Giá vốn đơn vị. Bỏ qua = CHƯA BIẾT (`null`), khác hẳn 0. */
+  cost?: number | null;
   warehouseId: string;
 }) {
   const code = await generateProductCode();
@@ -67,6 +69,7 @@ export async function createProduct(input: {
       unit: input.unit,
       stock: input.stock,
       price: input.price,
+      cost: input.cost ?? null,
       warehouseId: input.warehouseId,
     })
     .returning();
@@ -75,7 +78,15 @@ export async function createProduct(input: {
 
 export async function updateProduct(
   id: string,
-  patch: Partial<{ name: string; category: string; unit: string; stock: number; price: number; warehouseId: string }>,
+  patch: Partial<{
+    name: string;
+    category: string;
+    unit: string;
+    stock: number;
+    price: number;
+    cost: number | null;
+    warehouseId: string;
+  }>,
 ) {
   const rows = await db
     .update(products)

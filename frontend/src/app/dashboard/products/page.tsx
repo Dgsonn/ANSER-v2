@@ -23,7 +23,8 @@ function formatVnd(value: number) {
   return `${value.toLocaleString("vi-VN")}₫`;
 }
 
-type FormState = { name: string; category: string; unit: string; stock: string; price: string; warehouseId: string };
+// `cost` là chuỗi vì ô nhập có thể để TRỐNG = chưa biết giá vốn, khác hẳn "0".
+type FormState = { name: string; category: string; unit: string; stock: string; price: string; cost: string; warehouseId: string };
 
 export default function ProductsPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -39,6 +40,7 @@ export default function ProductsPage() {
     unit: "",
     stock: "0",
     price: "0",
+    cost: "",
     warehouseId: "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +82,7 @@ export default function ProductsPage() {
       unit: "",
       stock: "0",
       price: "0",
+      cost: "",
       warehouseId: warehouses[0]?.id ?? "",
     });
     setError(null);
@@ -94,6 +97,9 @@ export default function ProductsPage() {
       unit: product.unit,
       stock: String(product.stock),
       price: String(product.price),
+      // `null` -> ô trống, KHÔNG phải "0". Mở form sửa rồi bấm lưu không được
+      // âm thầm biến "chưa biết giá vốn" thành "giá vốn bằng 0".
+      cost: product.cost === null || product.cost === undefined ? "" : String(product.cost),
       warehouseId: product.warehouseId,
     });
     setError(null);
@@ -111,6 +117,7 @@ export default function ProductsPage() {
       unit: form.unit,
       stock: Number(form.stock),
       price: Number(form.price),
+      cost: form.cost.trim() === "" ? null : Number(form.cost),
       warehouseId: form.warehouseId,
     };
 
@@ -332,6 +339,25 @@ export default function ProductsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
                   className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-sky-500"
                 />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-400">
+                  Giá vốn (₫) — tuỳ chọn
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="Bỏ trống nếu chưa biết"
+                  value={form.cost}
+                  onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))}
+                  className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-sky-500"
+                />
+                <p className="mt-1.5 text-xs text-zinc-500">
+                  Bỏ trống nghĩa là <span className="text-zinc-400">chưa biết</span>, khác hẳn số 0.
+                  Doanh thu của mặt hàng chưa có giá vốn bị loại khỏi phép tính lãi, chứ không
+                  bị coi là lãi 100%.
+                </p>
               </div>
 
               <button

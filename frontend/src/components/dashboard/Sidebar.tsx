@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AlertTriangleIcon,
   BoltIcon,
   BoxIcon,
   ChartIcon,
@@ -20,6 +21,11 @@ const navItems = [
   { label: "Quản lý kho", icon: WarehouseIcon, href: "/dashboard/inventory" },
   { label: "Bán hàng", icon: ReceiptIcon, href: "/dashboard/sales" },
   { label: "Khách hàng", icon: UsersIcon, href: "/dashboard/customers" },
+  // Đặt ngay dưới Khách hàng: cả hai nói về cùng một nhóm người, chỉ khác câu
+  // hỏi — "họ là ai" và "họ đang giữ bao nhiêu tiền của mình".
+  { label: "Dòng tiền", icon: ChartIcon, href: "/dashboard/cashflow" },
+  { label: "Cảnh báo sổ sách", icon: AlertTriangleIcon, href: "/dashboard/audit" },
+  { label: "Tài liệu", icon: ReceiptIcon, href: "/dashboard/documents" },
   { label: "Báo cáo", icon: ChartIcon, href: "/dashboard/reports" },
   { label: "Tự động hoá", icon: BoltIcon, href: "/dashboard/automation" },
   { label: "Nhân sự", icon: StaffIcon, href: "/dashboard/staff" },
