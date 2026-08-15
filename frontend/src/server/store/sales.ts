@@ -110,18 +110,21 @@ export async function createInvoice(input: {
         lineTotal: item.lineTotal,
       });
 
+      // Changing logic from `stock - quantity` to `stock + quantity` with negative values for quantity
       await tx
         .update(products)
-        .set({ stock: sql`${products.stock} - ${item.quantity}`, updatedAt: new Date() })
+        .set({ stock: sql`${products.stock} + ${item.quantity}`, updatedAt: new Date() })
         .where(eq(products.id, item.productId));
 
       await tx.insert(inventoryTransactions).values({
         productId: item.productId,
         type: "export",
-        quantity: item.quantity,
+        quantity: -item.quantity,
+        // B1: Export is negative
+        // This is kept consistent with the {products.stock} + {item.quantity}, rather than reintroducing a minus
+        unitCost: item.unitCost,
         // `unitCost` LUÔN là giá vốn, kể cả ở dòng xuất — không bao giờ là giá
         // bán. Ghi giá bán vào đây là biến sổ kho thành sổ doanh thu.
-        unitCost: item.unitCost,
         counterparty: input.customerName,
         note: `Xuất theo hoá đơn bán hàng`,
       });
