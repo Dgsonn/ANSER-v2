@@ -131,6 +131,8 @@ export async function createInvoice(input: {
         unitCost: item.unitCost,
         // `unitCost` LUÔN là giá vốn, kể cả ở dòng xuất — không bao giờ là giá
         // bán. Ghi giá bán vào đây là biến sổ kho thành sổ doanh thu.
+        sourceType: "sale", // Check constrain 'inv_tx_source_type_hop_le'
+        sourceId: invoice.id, // Link stock transaction to salesInvoices.id
         counterparty: input.customerName,
         note: `Xuất theo hoá đơn bán hàng`,
       });
