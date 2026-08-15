@@ -8,6 +8,7 @@ export type SalesInvoiceItem = typeof salesInvoiceItems.$inferSelect;
 
 export class CrossWarehouseError extends Error {}
 export class NoItemError extends Error {}
+export class ProductNotFoundError extends Error {}
 
 export async function listInvoices(filter?: { limit?: number; warehouseIds?: string[] }) {
   const limit = filter?.limit ?? 50;
@@ -68,7 +69,7 @@ export async function createInvoice(input: {
     for (const [productId, quantity] of quantityByProduct) {
       const [product] = await tx.select().from(products).where(eq(products.id, productId)).limit(1);
       if (!product) {
-        throw new Error("Không tìm thấy sản phẩm.");
+        throw new ProductNotFoundError("Không tìm thấy sản phẩm.");
       }
       if (product.stock < quantity) {
         throw new InsufficientStockError(
