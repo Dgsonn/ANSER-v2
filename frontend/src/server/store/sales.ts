@@ -1,6 +1,6 @@
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { inventoryTransactions, products, salesInvoiceItems, salesInvoices } from "@/server/db/schema";
+import { employees, inventoryTransactions, products, salesInvoiceItems, salesInvoices } from "@/server/db/schema";
 import { InsufficientStockError } from "@/server/store/inventory";
 
 export type SalesInvoice = typeof salesInvoices.$inferSelect;
@@ -39,6 +39,7 @@ export async function getInvoiceById(id: string) {
 export async function createInvoice(input: {
   customerId?: string;
   customerName: string;
+  employeeId?: string;
   note?: string;
   items: { productId: string; quantity: number }[];
 }) {
@@ -48,10 +49,13 @@ export async function createInvoice(input: {
     quantityByProduct.set(item.productId, (quantityByProduct.get(item.productId) ?? 0) + item.quantity);
   }
 
+  // .transaction: A function to tell Drizzle to execute everthing inside as one database transaction
+  // If an error were to happen inside the function, the transaction is rolled back, ensuring no partially-created invoice
   return db.transaction(async (tx) => {
     const lineItems: {
       productId: string;
       productName: string;
+      employeeId?: string;
       unit: string;
       unitPrice: number;
       unitCost: number | null;
@@ -73,6 +77,7 @@ export async function createInvoice(input: {
       lineItems.push({
         productId,
         productName: product.name,
+        employeeId: input.employeeId,
         unit: product.unit,
         unitPrice: product.price,
         // CHỤP LẠI giá vốn tại thời điểm bán. Giá vốn trôi theo mỗi lần nhập
@@ -118,6 +123,7 @@ export async function createInvoice(input: {
 
       await tx.insert(inventoryTransactions).values({
         productId: item.productId,
+        employeeId: item.employeeId,
         type: "export",
         quantity: -item.quantity,
         // B1: Export is negative

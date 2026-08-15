@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { customerId, customerName, note, items } = await request.json().catch(() => ({}));
+  const { customerId, customerName, employeeId, note, items } = await request.json().catch(() => ({}));
 
   if ((!customerId && !customerName) || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ message: "Thiếu tên khách hàng hoặc danh sách sản phẩm." }, { status: 400 });
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     const invoice = await createInvoice({
       customerId: customerId || undefined,
       customerName: resolvedCustomerName,
+      employeeId: employeeId || undefined,
       note: note || undefined,
       items: items.map((item: { productId: string; quantity: number }) => ({
         productId: item.productId,
