@@ -131,7 +131,7 @@ export async function createInvoice(input: {
       // Changing logic from `stock - quantity` to `stock + quantity` with negative values for quantity
       await tx
         .update(products)
-        .set({ stock: sql`${products.stock} + ${item.quantity}`, updatedAt: new Date() })
+        .set({ stock: sql`${products.stock} + ${-item.quantity}`, updatedAt: new Date() })
         .where(eq(products.id, item.productId));
 
       await tx.insert(inventoryTransactions).values({
