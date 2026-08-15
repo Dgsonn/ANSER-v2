@@ -67,7 +67,7 @@ export async function createInvoice(input: {
     }[] = [];
 
     for (const [productId, quantity] of quantityByProduct) {
-      const [product] = await tx.select().from(products).where(eq(products.id, productId)).limit(1);
+      const [product] = await tx.select().from(products).where(eq(products.id, productId)).limit(1).for("update");
       if (!product) {
         throw new ProductNotFoundError("Không tìm thấy sản phẩm.");
       }
