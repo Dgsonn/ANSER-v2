@@ -110,6 +110,8 @@ export async function createInvoice(input: {
         lineTotal: item.lineTotal,
       });
 
+      // `item.quantity` luôn dương (số lượng bán). Bán hàng là xuất kho nên trừ
+      // vào tồn — dấu ngược lại thì mỗi lần bán hàng tồn kho lại tăng lên.
       await tx
         .update(products)
         .set({ stock: sql`${products.stock} - ${item.quantity}`, updatedAt: new Date() })
@@ -118,7 +120,8 @@ export async function createInvoice(input: {
       await tx.insert(inventoryTransactions).values({
         productId: item.productId,
         type: "export",
-        quantity: item.quantity,
+        // B1: xuất kho mang dấu âm — khớp quy ước `stock = SUM(quantity)`.
+        quantity: -item.quantity,
         // `unitCost` LUÔN là giá vốn, kể cả ở dòng xuất — không bao giờ là giá
         // bán. Ghi giá bán vào đây là biến sổ kho thành sổ doanh thu.
         unitCost: item.unitCost,
