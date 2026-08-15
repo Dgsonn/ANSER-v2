@@ -7,6 +7,7 @@ export type SalesInvoice = typeof salesInvoices.$inferSelect;
 export type SalesInvoiceItem = typeof salesInvoiceItems.$inferSelect;
 
 export class CrossWarehouseError extends Error {}
+export class NoItemError extends Error {}
 
 export async function listInvoices(filter?: { limit?: number; warehouseIds?: string[] }) {
   const limit = filter?.limit ?? 50;
@@ -91,16 +92,28 @@ export async function createInvoice(input: {
       });
     }
 
+    // Added an edge case check: What if there's no item? AKA What if lineItems is empty?
+    // Then lineItems.map((item) => item.warehouseId) is an empty array []
+    // new Set([]) = 0 -> [...distinctWarehouse][0] has nothing AKA undefined
+    if (lineItems.length === 0) {
+      throw new NoItemError("Hoá đơn phải có ít nhất 1 sản phẩm");
+    }
+    // A set is iterable, but it does not have array indexing
+    // E.g: const warehouses = new Set(["warehouse-A"]);
+    // We can't do warehouses[0]
+    // But we can convert warehouses in to an array [warehouses]
     const distinctWarehouses = new Set(lineItems.map((item) => item.warehouseId));
     if (distinctWarehouses.size > 1) {
       throw new CrossWarehouseError("Một hoá đơn chỉ được bán sản phẩm trong cùng 1 kho.");
     }
+    // Destructure that array into only the Id part [...warehouses][0]
+    const warehouseId = [...distinctWarehouses][0];
 
     const total = lineItems.reduce((sum, item) => sum + item.lineTotal, 0);
 
     const [invoice] = await tx
       .insert(salesInvoices)
-      .values({ customerId: input.customerId, customerName: input.customerName, note: input.note, total })
+      .values({ customerId: input.customerId, customerName: input.customerName, warehouseId, note: input.note, total })
       .returning();
 
     for (const item of lineItems) {
