@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteProduct, getProductById, PRODUCT_CATEGORIES, updateProduct } from "@/server/store/products";
+import { deleteProduct, getProductById, updateProduct } from "@/server/store/products";
 import { listWarehouses } from "@/server/store/warehouses";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -15,10 +15,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
 
-  if (body.category && !PRODUCT_CATEGORIES.includes(body.category)) {
-    return NextResponse.json({ message: "Danh mục không hợp lệ." }, { status: 400 });
-  }
-
   if (body.warehouseId !== undefined) {
     const validWarehouses = await listWarehouses();
     if (!validWarehouses.some((w) => w.id === body.warehouseId)) {
@@ -28,6 +24,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const patch: Partial<{
     name: string;
+    categoryId: string | null;
     category: string;
     unit: string;
     stock: number;
@@ -36,6 +33,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     warehouseId: string;
   }> = {};
   if (body.name !== undefined) patch.name = body.name;
+  if (body.categoryId !== undefined) patch.categoryId = body.categoryId;
   if (body.category !== undefined) patch.category = body.category;
   if (body.unit !== undefined) patch.unit = body.unit;
   if (body.warehouseId !== undefined) patch.warehouseId = body.warehouseId;

@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { getRule, deleteRule, updateRule } from "@/server/store/automation";
-import { PRODUCT_CATEGORIES } from "@/server/store/products";
-import { listWarehouses } from "@/server/store/warehouses";
 import { activateN8nWorkflow, deactivateN8nWorkflow } from "@/server/n8nApi";
+import { deleteRule, getRule, updateRule } from "@/server/store/automation";
+import { listWarehouses } from "@/server/store/warehouses";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
 
-  if (body.categoryFilter && !PRODUCT_CATEGORIES.includes(body.categoryFilter)) {
-    return NextResponse.json({ message: "Danh mục không hợp lệ." }, { status: 400 });
-  }
   if (body.warehouseId) {
     const validWarehouses = await listWarehouses();
     if (!validWarehouses.some((w) => w.id === body.warehouseId)) {
@@ -42,14 +38,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const patch: Partial<{
     name: string;
     thresholdQty: number;
-    categoryFilter: string | null;
+    categoryId: string | null;
     warehouseId: string | null;
     enabled: boolean;
     n8nWorkflowId: string | null;
   }> = {};
   if (body.name !== undefined) patch.name = body.name;
   if (body.thresholdQty !== undefined) patch.thresholdQty = Number(body.thresholdQty);
-  if (body.categoryFilter !== undefined) patch.categoryFilter = body.categoryFilter || null;
+  if (body.categoryId !== undefined) patch.categoryId = body.categoryId || null;
   if (body.warehouseId !== undefined) patch.warehouseId = body.warehouseId || null;
   if (body.enabled !== undefined) patch.enabled = Boolean(body.enabled);
   if (body.n8nWorkflowId !== undefined) patch.n8nWorkflowId = body.n8nWorkflowId || null;

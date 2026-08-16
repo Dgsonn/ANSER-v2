@@ -74,6 +74,7 @@ function timeAgo(dateInput: string | Date) {
 }
 
 export default function AutomationPage() {
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [n8nStatus, setN8nStatus] = useState<"checking" | "connected" | "offline" | "unconfigured">("checking");
@@ -89,11 +90,17 @@ export default function AutomationPage() {
   const [savingSchedule, setSavingSchedule] = useState(false);
 
   const load = useCallback(async () => {
-    const [rulesRes, warehousesRes] = await Promise.all([fetch("/api/automation/rules"), fetch("/api/warehouses")]);
+    const [rulesRes, warehousesRes, categoriesRes] = await Promise.all([
+      fetch("/api/automation/rules"),
+      fetch("/api/warehouses"),
+      fetch("/api/categories"),
+    ]);
     const rulesData = await rulesRes.json();
     const warehousesData = await warehousesRes.json();
+    const categoriesData = await categoriesRes.json();
     setRules(rulesData.rules ?? []);
     setWarehouses(warehousesData.warehouses ?? []);
+    setCategories(categoriesData.categories ?? []);
   }, []);
 
   const checkN8nStatus = useCallback(async () => {
@@ -121,6 +128,10 @@ export default function AutomationPage() {
 
   function warehouseName(id: string | null) {
     return warehouses.find((w) => w.id === id)?.name;
+  }
+
+  function categoryName(id: string | null) {
+    return categories.find((c) => c.id === id)?.name;
   }
 
   async function toggleRule(rule: AutomationRule) {
@@ -354,7 +365,7 @@ export default function AutomationPage() {
                     {rule.type === "low_stock_alert" ? (
                       <>
                         Ngưỡng tồn kho &lt; {rule.thresholdQty ?? 20}
-                        {rule.categoryFilter ? ` · ${rule.categoryFilter}` : " · Mọi danh mục"}
+                        {rule.categoryId ? ` · ${categoryName(rule.categoryId) ?? "Danh mục đã xoá"}` : " · Mọi danh mục"}
                         {rule.warehouseId ? ` · ${warehouseName(rule.warehouseId) ?? "Kho đã xoá"}` : " · Mọi kho"}
                       </>
                     ) : (
