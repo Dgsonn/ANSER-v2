@@ -1,6 +1,7 @@
 import { isNull } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { automationRules, inventoryTransactions, products, warehouses } from "@/server/db/schema";
+import { getOrCreateCategoryId } from "@/server/store/categories";
 import { LOW_STOCK_THRESHOLD } from "@/server/store/products";
 import { listWarehouses } from "@/server/store/warehouses";
 
@@ -41,10 +42,14 @@ export async function seedInitialData() {
 
   const warehouseId = await ensureDefaultWarehouseAndBackfill();
 
-  const inserted = await db
-    .insert(products)
-    .values(SEED_PRODUCTS.map((p) => ({ ...p, warehouseId })))
-    .returning();
+  const seedProducts = await Promise.all(
+    SEED_PRODUCTS.map(async ({ category, ...p }) => ({
+      ...p,
+      categoryId: await getOrCreateCategoryId(category),
+      warehouseId,
+    })),
+  );
+  const inserted = await db.insert(products).values(seedProducts).returning();
 
   for (const seed of SEED_IMPORTS) {
     const product = inserted.find((p) => p.code === seed.code);

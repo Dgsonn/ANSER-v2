@@ -65,9 +65,7 @@ export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
-  // TODO: chuẩn hoá thành categoryId -> categories.id (đã có bảng categories,
-  // ERD đã chốt) khi CRUD danh mục được xây — hiện chưa có API/UI nào dùng nó.
-  category: text("category").notNull(),
+  categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
   warehouseId: uuid("warehouse_id").notNull().references(() => warehouses.id),
   // C1 — bằng chứng: KM00028 và VT00069 là CÙNG một mặt hàng, hai mã, hai kho
   // (kiểm trên bản xuất thật). Hỏi "còn bao nhiêu dầu này" mà chỉ tra một mã là
@@ -227,9 +225,9 @@ export const automationRules = pgTable("automation_rules", {
   name: text("name").notNull(),
   type: text("type").notNull().default("low_stock_alert"),
   thresholdQty: numeric("threshold_qty", { precision: 14, scale: 3, mode: "number" }),
-  // TODO: M1 đề xuất categoryId -> categories.id (đổi tên danh mục thì
-  // categoryFilter im lặng ngừng khớp). Chưa đổi vì chưa có CRUD danh mục.
-  categoryFilter: text("category_filter"),
+  // M1 — thay `categoryFilter: text`. Đổi tên danh mục thì luật im lặng ngừng
+  // khớp: không lỗi, không cảnh báo, chỉ là không bao giờ chạy nữa.
+  categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
   warehouseId: uuid("warehouse_id").references(() => warehouses.id, { onDelete: "set null" }),
   enabled: boolean("enabled").notNull().default(true),
   n8nWorkflowId: text("n8n_workflow_id"),

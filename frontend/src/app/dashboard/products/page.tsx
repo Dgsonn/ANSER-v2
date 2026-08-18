@@ -93,7 +93,7 @@ export default function ProductsPage() {
     setEditingId(product.id);
     setForm({
       name: product.name,
-      category: product.category,
+      category: product.category ?? CATEGORIES[0],
       unit: product.unit,
       stock: String(product.stock),
       price: String(product.price),

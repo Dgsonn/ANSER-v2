@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { inventoryTransactions, products, salesInvoiceItems, salesInvoices } from "@/server/db/schema";
+import { categories, inventoryTransactions, products, salesInvoiceItems, salesInvoices } from "@/server/db/schema";
 import { computeAlerts, listRules } from "@/server/store/automation";
 import { listProducts, PRODUCT_CATEGORIES } from "@/server/store/products";
 import { listInvoices } from "@/server/store/sales";
@@ -77,13 +77,14 @@ export async function getReportSummary() {
       computeRevenueMetrics(warehouseIds, sevenDaysAgo),
       db
         .select({
-          category: products.category,
+          category: categories.name,
           revenue: sql<number>`coalesce(sum(${salesInvoiceItems.lineTotal}), 0)::integer`,
         })
         .from(salesInvoiceItems)
         .innerJoin(products, eq(salesInvoiceItems.productId, products.id))
+        .leftJoin(categories, eq(products.categoryId, categories.id))
         .where(inArray(products.warehouseId, warehouseIds))
-        .groupBy(products.category),
+        .groupBy(categories.name),
       listInvoices({ limit: 5, warehouseIds }),
       listRules(warehouseIds),
     ]);

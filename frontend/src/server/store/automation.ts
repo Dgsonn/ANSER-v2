@@ -1,14 +1,23 @@
-import { desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { desc, eq, getTableColumns, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { automationRules } from "@/server/db/schema";
+import { automationRules, categories } from "@/server/db/schema";
+import { getOrCreateCategoryId } from "@/server/store/categories";
 import { listProducts, LOW_STOCK_THRESHOLD, type Product } from "@/server/store/products";
 
-export type AutomationRule = typeof automationRules.$inferSelect;
+// `categoryFilter` (text) đã đổi thành `categoryId` -> categories.id (M1), cùng lý do với
+// products.category (xem store/products.ts) — join để giữ nguyên hình dạng cho phần còn lại của app.
+const ruleWithCategory = {
+  ...getTableColumns(automationRules),
+  categoryFilter: sql<string | null>`${categories.name}`.as("categoryFilter"),
+};
+
+export type AutomationRule = Awaited<ReturnType<typeof listRules>>[number];
 
 export async function listRules(warehouseIds?: string[]) {
   return db
-    .select()
+    .select(ruleWithCategory)
     .from(automationRules)
+    .leftJoin(categories, eq(automationRules.categoryId, categories.id))
     .where(
       warehouseIds
         ? or(isNull(automationRules.warehouseId), inArray(automationRules.warehouseId, warehouseIds))
@@ -27,6 +36,7 @@ export async function createRule(input: {
   n8nWorkflowId?: string;
 }) {
   const type = input.type ?? "low_stock_alert";
+  const categoryId = input.categoryFilter ? await getOrCreateCategoryId(input.categoryFilter) : undefined;
   const rows = await db
     .insert(automationRules)
     .values({
@@ -35,13 +45,13 @@ export async function createRule(input: {
       // Ngưỡng/danh mục chỉ có ý nghĩa với rule tồn kho — các loại khác (báo cáo doanh số,
       // chào khách hàng mới) chỉ là dòng đánh dấu "đã triển khai qua n8n", không dùng threshold.
       thresholdQty: type === "low_stock_alert" ? (input.thresholdQty ?? LOW_STOCK_THRESHOLD) : null,
-      categoryFilter: input.categoryFilter,
+      categoryId,
       warehouseId: input.warehouseId,
       enabled: input.enabled ?? true,
       n8nWorkflowId: input.n8nWorkflowId,
     })
     .returning();
-  return rows[0];
+  return { ...rows[0], categoryFilter: input.categoryFilter ?? null };
 }
 
 export async function updateRule(
@@ -55,12 +65,27 @@ export async function updateRule(
     n8nWorkflowId: string | null;
   }>,
 ) {
-  const rows = await db.update(automationRules).set(patch).where(eq(automationRules.id, id)).returning();
-  return rows[0];
+  const { categoryFilter, ...rest } = patch;
+  const categoryId =
+    categoryFilter !== undefined
+      ? categoryFilter === null
+        ? null
+        : await getOrCreateCategoryId(categoryFilter)
+      : undefined;
+  await db
+    .update(automationRules)
+    .set({ ...rest, ...(categoryId !== undefined ? { categoryId } : {}) })
+    .where(eq(automationRules.id, id))
+    .returning();
+  return getRule(id);
 }
 
 export async function getRule(id: string) {
-  const rows = await db.select().from(automationRules).where(eq(automationRules.id, id));
+  const rows = await db
+    .select(ruleWithCategory)
+    .from(automationRules)
+    .leftJoin(categories, eq(automationRules.categoryId, categories.id))
+    .where(eq(automationRules.id, id));
   return rows[0];
 }
 

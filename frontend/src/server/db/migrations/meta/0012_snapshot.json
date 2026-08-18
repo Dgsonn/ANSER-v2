@@ -1,5 +1,5 @@
 {
-  "id": "d0a71be0-a74c-49ae-a6f1-b748e123c902",
+  "id": "6aacfa43-4acc-4c9f-85dd-455aaf70ec36",
   "prevId": "af9bed28-23d8-4c3a-bd0a-c26b14588687",
   "version": "7",
   "dialect": "postgresql",
@@ -34,9 +34,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "category_filter": {
-          "name": "category_filter",
-          "type": "text",
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -87,6 +87,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "automation_rules_category_id_categories_id_fk": {
+          "name": "automation_rules_category_id_categories_id_fk",
+          "tableFrom": "automation_rules",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "automation_rules_warehouse_id_warehouses_id_fk": {
           "name": "automation_rules_warehouse_id_warehouses_id_fk",
           "tableFrom": "automation_rules",
@@ -624,11 +637,11 @@
           "primaryKey": false,
           "notNull": true
         },
-        "category": {
-          "name": "category",
-          "type": "text",
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "warehouse_id": {
           "name": "warehouse_id",
@@ -699,6 +712,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "products_category_id_categories_id_fk": {
+          "name": "products_category_id_categories_id_fk",
+          "tableFrom": "products",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "products_warehouse_id_warehouses_id_fk": {
           "name": "products_warehouse_id_warehouses_id_fk",
           "tableFrom": "products",
