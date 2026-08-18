@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCustomerById } from "@/server/store/customers";
 import { InsufficientStockError } from "@/server/store/inventory";
-import { createInvoice, CrossWarehouseError, listInvoices } from "@/server/store/sales";
+import { createInvoice, CrossWarehouseError, listInvoices, NoItemError, ProductNotFoundError } from "@/server/store/sales";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { customerId, customerName, note, items } = await request.json().catch(() => ({}));
+  const { customerId, customerName, employeeId, note, items } = await request.json().catch(() => ({}));
 
   if ((!customerId && !customerName) || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ message: "Thiếu tên khách hàng hoặc danh sách sản phẩm." }, { status: 400 });
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     const invoice = await createInvoice({
       customerId: customerId || undefined,
       customerName: resolvedCustomerName,
+      employeeId: employeeId || undefined,
       note: note || undefined,
       items: items.map((item: { productId: string; quantity: number }) => ({
         productId: item.productId,
@@ -44,9 +45,30 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ invoice }, { status: 201 });
   } catch (error) {
-    if (error instanceof InsufficientStockError || error instanceof CrossWarehouseError) {
-      return NextResponse.json({ message: error.message }, { status: 409 });
+    if (error instanceof ProductNotFoundError) {
+      return NextResponse.json(
+        { message: error.message },
+        { status: 404 }
+      )
     }
-    return NextResponse.json({ message: "Không tìm thấy sản phẩm." }, { status: 404 });
+    if (error instanceof NoItemError) {
+      return NextResponse.json(
+        { message: error.message },
+        { status: 400 }
+      );
+    }
+    if (
+      error instanceof InsufficientStockError ||
+      error instanceof CrossWarehouseError
+    ) {
+      return NextResponse.json(
+        { message: error.message },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json(
+      { message: "Lỗi hệ thống" },
+      { status: 500 }
+    );
   }
 }

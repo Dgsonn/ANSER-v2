@@ -1,12 +1,14 @@
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { inventoryTransactions, products, salesInvoiceItems, salesInvoices } from "@/server/db/schema";
+import { employees, inventoryTransactions, products, salesInvoiceItems, salesInvoices } from "@/server/db/schema";
 import { InsufficientStockError } from "@/server/store/inventory";
 
 export type SalesInvoice = typeof salesInvoices.$inferSelect;
 export type SalesInvoiceItem = typeof salesInvoiceItems.$inferSelect;
 
 export class CrossWarehouseError extends Error {}
+export class NoItemError extends Error {}
+export class ProductNotFoundError extends Error {}
 
 export async function listInvoices(filter?: { limit?: number; warehouseIds?: string[] }) {
   const limit = filter?.limit ?? 50;
@@ -39,6 +41,7 @@ export async function getInvoiceById(id: string) {
 export async function createInvoice(input: {
   customerId?: string;
   customerName: string;
+  employeeId?: string;
   note?: string;
   items: { productId: string; quantity: number }[];
 }) {
@@ -48,10 +51,13 @@ export async function createInvoice(input: {
     quantityByProduct.set(item.productId, (quantityByProduct.get(item.productId) ?? 0) + item.quantity);
   }
 
+  // .transaction: A function to tell Drizzle to execute everthing inside as one database transaction
+  // If an error were to happen inside the function, the transaction is rolled back, ensuring no partially-created invoice
   return db.transaction(async (tx) => {
     const lineItems: {
       productId: string;
       productName: string;
+      employeeId?: string;
       unit: string;
       unitPrice: number;
       unitCost: number | null;
@@ -61,9 +67,9 @@ export async function createInvoice(input: {
     }[] = [];
 
     for (const [productId, quantity] of quantityByProduct) {
-      const [product] = await tx.select().from(products).where(eq(products.id, productId)).limit(1);
+      const [product] = await tx.select().from(products).where(eq(products.id, productId)).limit(1).for("update");
       if (!product) {
-        throw new Error("Không tìm thấy sản phẩm.");
+        throw new ProductNotFoundError("Không tìm thấy sản phẩm.");
       }
       if (product.stock < quantity) {
         throw new InsufficientStockError(
@@ -73,6 +79,7 @@ export async function createInvoice(input: {
       lineItems.push({
         productId,
         productName: product.name,
+        employeeId: input.employeeId,
         unit: product.unit,
         unitPrice: product.price,
         // CHỤP LẠI giá vốn tại thời điểm bán. Giá vốn trôi theo mỗi lần nhập
@@ -86,16 +93,28 @@ export async function createInvoice(input: {
       });
     }
 
+    // Added an edge case check: What if there's no item? AKA What if lineItems is empty?
+    // Then lineItems.map((item) => item.warehouseId) is an empty array []
+    // new Set([]) = 0 -> [...distinctWarehouse][0] has nothing AKA undefined
+    if (lineItems.length === 0) {
+      throw new NoItemError("Hoá đơn phải có ít nhất 1 sản phẩm");
+    }
+    // A set is iterable, but it does not have array indexing
+    // E.g: const warehouses = new Set(["warehouse-A"]);
+    // We can't do warehouses[0]
+    // But we can convert warehouses in to an array [warehouses]
     const distinctWarehouses = new Set(lineItems.map((item) => item.warehouseId));
     if (distinctWarehouses.size > 1) {
       throw new CrossWarehouseError("Một hoá đơn chỉ được bán sản phẩm trong cùng 1 kho.");
     }
+    // Destructure that array into only the Id part [...warehouses][0]
+    const warehouseId = [...distinctWarehouses][0];
 
     const total = lineItems.reduce((sum, item) => sum + item.lineTotal, 0);
 
     const [invoice] = await tx
       .insert(salesInvoices)
-      .values({ customerId: input.customerId, customerName: input.customerName, note: input.note, total })
+      .values({ customerId: input.customerId, customerName: input.customerName, warehouseId, note: input.note, total })
       .returning();
 
     for (const item of lineItems) {
@@ -119,12 +138,15 @@ export async function createInvoice(input: {
 
       await tx.insert(inventoryTransactions).values({
         productId: item.productId,
+        employeeId: item.employeeId,
         type: "export",
         // B1: xuất kho mang dấu âm — khớp quy ước `stock = SUM(quantity)`.
         quantity: -item.quantity,
         // `unitCost` LUÔN là giá vốn, kể cả ở dòng xuất — không bao giờ là giá
         // bán. Ghi giá bán vào đây là biến sổ kho thành sổ doanh thu.
         unitCost: item.unitCost,
+        sourceType: "sale", // Check constrain 'inv_tx_source_type_hop_le'
+        sourceId: invoice.id, // Link stock transaction to salesInvoices.id
         counterparty: input.customerName,
         note: `Xuất theo hoá đơn bán hàng`,
       });
