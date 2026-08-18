@@ -1,23 +1,14 @@
-import { desc, eq, getTableColumns, inArray, isNull, or, sql } from "drizzle-orm";
+import { desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { automationRules, categories } from "@/server/db/schema";
-import { getOrCreateCategoryId } from "@/server/store/categories";
-import { listProducts, LOW_STOCK_THRESHOLD, type Product } from "@/server/store/products";
+import { automationRules } from "@/server/db/schema";
+import { listProducts, LOW_STOCK_THRESHOLD } from "@/server/store/products";
 
-// `categoryFilter` (text) đã đổi thành `categoryId` -> categories.id (M1), cùng lý do với
-// products.category (xem store/products.ts) — join để giữ nguyên hình dạng cho phần còn lại của app.
-const ruleWithCategory = {
-  ...getTableColumns(automationRules),
-  categoryFilter: sql<string | null>`${categories.name}`.as("categoryFilter"),
-};
-
-export type AutomationRule = Awaited<ReturnType<typeof listRules>>[number];
+export type AutomationRule = typeof automationRules.$inferSelect;
 
 export async function listRules(warehouseIds?: string[]) {
   return db
-    .select(ruleWithCategory)
+    .select()
     .from(automationRules)
-    .leftJoin(categories, eq(automationRules.categoryId, categories.id))
     .where(
       warehouseIds
         ? or(isNull(automationRules.warehouseId), inArray(automationRules.warehouseId, warehouseIds))
@@ -30,13 +21,12 @@ export async function createRule(input: {
   name: string;
   type?: string;
   thresholdQty?: number;
-  categoryFilter?: string;
+  categoryId?: string | null;
   warehouseId?: string;
   enabled?: boolean;
   n8nWorkflowId?: string;
 }) {
   const type = input.type ?? "low_stock_alert";
-  const categoryId = input.categoryFilter ? await getOrCreateCategoryId(input.categoryFilter) : undefined;
   const rows = await db
     .insert(automationRules)
     .values({
@@ -45,13 +35,13 @@ export async function createRule(input: {
       // Ngưỡng/danh mục chỉ có ý nghĩa với rule tồn kho — các loại khác (báo cáo doanh số,
       // chào khách hàng mới) chỉ là dòng đánh dấu "đã triển khai qua n8n", không dùng threshold.
       thresholdQty: type === "low_stock_alert" ? (input.thresholdQty ?? LOW_STOCK_THRESHOLD) : null,
-      categoryId,
+      categoryId: input.categoryId ?? null,
       warehouseId: input.warehouseId,
       enabled: input.enabled ?? true,
       n8nWorkflowId: input.n8nWorkflowId,
     })
     .returning();
-  return { ...rows[0], categoryFilter: input.categoryFilter ?? null };
+  return rows[0];
 }
 
 export async function updateRule(
@@ -59,33 +49,18 @@ export async function updateRule(
   patch: Partial<{
     name: string;
     thresholdQty: number;
-    categoryFilter: string | null;
+    categoryId: string | null;
     warehouseId: string | null;
     enabled: boolean;
     n8nWorkflowId: string | null;
   }>,
 ) {
-  const { categoryFilter, ...rest } = patch;
-  const categoryId =
-    categoryFilter !== undefined
-      ? categoryFilter === null
-        ? null
-        : await getOrCreateCategoryId(categoryFilter)
-      : undefined;
-  await db
-    .update(automationRules)
-    .set({ ...rest, ...(categoryId !== undefined ? { categoryId } : {}) })
-    .where(eq(automationRules.id, id))
-    .returning();
-  return getRule(id);
+  const rows = await db.update(automationRules).set(patch).where(eq(automationRules.id, id)).returning();
+  return rows[0];
 }
 
 export async function getRule(id: string) {
-  const rows = await db
-    .select(ruleWithCategory)
-    .from(automationRules)
-    .leftJoin(categories, eq(automationRules.categoryId, categories.id))
-    .where(eq(automationRules.id, id));
+  const rows = await db.select().from(automationRules).where(eq(automationRules.id, id));
   return rows[0];
 }
 
@@ -103,19 +78,21 @@ export type AutomationAlert = {
   thresholdQty: number;
 };
 
-// Tách riêng phần tính toán thuần (không gọi DB) để nơi nào đã có sẵn products/rules trong tay
-// (vd getReportSummary()) tái dùng được luôn, khỏi phải fetch lại — evaluateAlerts() bên dưới
-// vẫn là bản đầy đủ (tự fetch) cho những chỗ chưa có sẵn dữ liệu.
-export function computeAlerts(products: Product[], rules: AutomationRule[]): AutomationAlert[] {
-  const activeRules = rules.filter((rule) => rule.enabled && rule.type === "low_stock_alert");
+export async function evaluateAlerts(warehouseIds?: string[]): Promise<AutomationAlert[]> {
+  const rules = (await listRules(warehouseIds)).filter(
+    (rule) => rule.enabled && rule.type === "low_stock_alert",
+  );
+  if (rules.length === 0) return [];
+
+  const products = await listProducts({ warehouseIds });
   const alerts: AutomationAlert[] = [];
 
-  for (const rule of activeRules) {
+  for (const rule of rules) {
     const threshold = rule.thresholdQty ?? LOW_STOCK_THRESHOLD;
     const matching = products.filter(
       (product) =>
         product.stock < threshold &&
-        (!rule.categoryFilter || product.category === rule.categoryFilter) &&
+        (!rule.categoryId || product.categoryId === rule.categoryId) &&
         (!rule.warehouseId || product.warehouseId === rule.warehouseId),
     );
     for (const product of matching) {
@@ -132,11 +109,4 @@ export function computeAlerts(products: Product[], rules: AutomationRule[]): Aut
   }
 
   return alerts;
-}
-
-export async function evaluateAlerts(warehouseIds?: string[]): Promise<AutomationAlert[]> {
-  const rules = await listRules(warehouseIds);
-  if (!rules.some((rule) => rule.enabled && rule.type === "low_stock_alert")) return [];
-  const products = await listProducts({ warehouseIds });
-  return computeAlerts(products, rules);
 }

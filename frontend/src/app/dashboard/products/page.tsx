@@ -5,7 +5,7 @@ import { EditIcon, PlusIcon, TrashIcon, XIcon } from "@/components/dashboard/ico
 import type { Product } from "@/server/store/products";
 import type { Warehouse } from "@/server/store/warehouses";
 
-const CATEGORIES = ["Nguyên vật liệu", "Bán thành phẩm", "Thành phẩm", "Phụ liệu"];
+type CategoryOption = { id: string; name: string };
 
 const statusStyles: Record<string, string> = {
   "Còn hàng": "bg-emerald-500/15 text-emerald-400",
@@ -24,19 +24,28 @@ function formatVnd(value: number) {
 }
 
 // `cost` là chuỗi vì ô nhập có thể để TRỐNG = chưa biết giá vốn, khác hẳn "0".
-type FormState = { name: string; category: string; unit: string; stock: string; price: string; cost: string; warehouseId: string };
+type FormState = {
+  name: string;
+  categoryId: string;
+  unit: string;
+  stock: string;
+  price: string;
+  cost: string;
+  warehouseId: string;
+};
 
 export default function ProductsPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>({
     name: "",
-    category: CATEGORIES[0],
+    categoryId: "",
     unit: "",
     stock: "0",
     price: "0",
@@ -48,9 +57,11 @@ export default function ProductsPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/warehouses");
-      const data = await res.json();
-      setWarehouses(data.warehouses ?? []);
+      const [wRes, cRes] = await Promise.all([fetch("/api/warehouses"), fetch("/api/categories")]);
+      const wData = await wRes.json();
+      const cData = await cRes.json();
+      setWarehouses(wData.warehouses ?? []);
+      setCategories(cData.categories ?? []);
     })();
   }, []);
 
@@ -58,12 +69,12 @@ export default function ProductsPage() {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
-    if (category) params.set("category", category);
+    if (categoryId) params.set("categoryId", categoryId);
     const res = await fetch(`/api/products?${params.toString()}`);
     const data = await res.json();
     setProducts(data.products ?? []);
     setLoading(false);
-  }, [search, category]);
+  }, [search, categoryId]);
 
   useEffect(() => {
     const timeout = setTimeout(load, 250);
@@ -78,7 +89,7 @@ export default function ProductsPage() {
     setEditingId(null);
     setForm({
       name: "",
-      category: CATEGORIES[0],
+      categoryId: categories[0]?.id ?? "",
       unit: "",
       stock: "0",
       price: "0",
@@ -93,7 +104,7 @@ export default function ProductsPage() {
     setEditingId(product.id);
     setForm({
       name: product.name,
-      category: product.category ?? CATEGORIES[0],
+      categoryId: product.categoryId ?? categories[0]?.id ?? "",
       unit: product.unit,
       stock: String(product.stock),
       price: String(product.price),
@@ -111,24 +122,15 @@ export default function ProductsPage() {
     setSubmitting(true);
     setError(null);
 
-    const payload = editingId
-      ? {
-          name: form.name,
-          category: form.category,
-          unit: form.unit,
-          price: Number(form.price),
-          cost: form.cost.trim() === "" ? null : Number(form.cost),
-          warehouseId: form.warehouseId,
-        }
-      : {
-          name: form.name,
-          category: form.category,
-          unit: form.unit,
-          stock: Number(form.stock),
-          price: Number(form.price),
-          cost: form.cost.trim() === "" ? null : Number(form.cost),
-          warehouseId: form.warehouseId,
-        };
+    const payload = {
+      name: form.name,
+      categoryId: form.categoryId || null,
+      unit: form.unit,
+      stock: Number(form.stock),
+      price: Number(form.price),
+      cost: form.cost.trim() === "" ? null : Number(form.cost),
+      warehouseId: form.warehouseId,
+    };
 
     const res = await fetch(editingId ? `/api/products/${editingId}` : "/api/products", {
       method: editingId ? "PATCH" : "POST",
@@ -159,9 +161,7 @@ export default function ProductsPage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Sản phẩm</h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            Quản lý danh mục, giá bán và thông tin sản phẩm — đổi tồn kho ở trang Quản lý kho.
-          </p>
+          <p className="mt-1 text-sm text-zinc-400">Quản lý danh mục sản phẩm và tồn kho hiện tại.</p>
         </div>
         <button
           onClick={openCreate}
@@ -180,14 +180,14 @@ export default function ProductsPage() {
           className="flex-1 rounded-xl border border-white/[0.08] bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-sky-500"
         />
         <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
           className="rounded-xl border border-white/[0.08] bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-sky-500"
         >
           <option value="">Tất cả danh mục</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </select>
@@ -223,7 +223,7 @@ export default function ProductsPage() {
                     <td className="px-5 py-3 font-mono text-xs text-zinc-400">{p.code}</td>
                     <td className="px-5 py-3 font-medium">{p.name}</td>
                     <td className="px-5 py-3 text-zinc-400">{warehouseName(p.warehouseId)}</td>
-                    <td className="px-5 py-3 text-zinc-400">{p.category}</td>
+                    <td className="px-5 py-3 text-zinc-400">{p.category ?? "Chưa phân loại"}</td>
                     <td className="px-5 py-3 text-zinc-400">
                       {p.stock} {p.unit}
                     </td>
@@ -288,13 +288,14 @@ export default function ProductsPage() {
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-zinc-400">Danh mục</label>
                   <select
-                    value={form.category}
-                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                    value={form.categoryId}
+                    onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
                     className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-sky-500"
                   >
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    <option value="">Chưa phân loại</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
                       </option>
                     ))}
                   </select>
@@ -328,23 +329,15 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-zinc-400">
-                    Tồn kho {editingId && <span className="font-normal normal-case text-zinc-600">(ban đầu)</span>}
-                  </label>
+                  <label className="mb-1.5 block text-xs font-semibold text-zinc-400">Tồn kho</label>
                   <input
                     required
-                    disabled={Boolean(editingId)}
                     type="number"
                     min={0}
                     value={form.stock}
                     onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
-                    className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-sky-500 disabled:cursor-not-allowed disabled:text-zinc-500"
+                    className="w-full rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-sky-500"
                   />
-                  {editingId && (
-                    <p className="mt-1.5 text-[11px] text-zinc-500">
-                      Đổi tồn kho qua Quản lý kho → Tạo phiếu nhập/xuất.
-                    </p>
-                  )}
                 </div>
               </div>
 

@@ -1,8 +1,9 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { categories, inventoryTransactions, products, salesInvoiceItems, salesInvoices } from "@/server/db/schema";
-import { computeAlerts, listRules } from "@/server/store/automation";
-import { listProducts, PRODUCT_CATEGORIES } from "@/server/store/products";
+import { evaluateAlerts } from "@/server/store/automation";
+import { listCategories } from "@/server/store/categories";
+import { listProducts } from "@/server/store/products";
 import { listInvoices } from "@/server/store/sales";
 import { listWarehouses } from "@/server/store/warehouses";
 
@@ -17,20 +18,18 @@ function scopedInvoiceIdsQuery(warehouseIds: string[]) {
 }
 
 async function computeRevenueMetrics(warehouseIds: string[], sevenDaysAgo: Date) {
-  // 2 truy vấn độc lập (không phụ thuộc kết quả của nhau) — chạy song song thay vì nối tiếp để
-  // giảm số vòng round-trip mạng tới Neon (driver WebSocket, mỗi await là 1 lần đi-về thật).
-  const [totalRevenueRows, recentInvoiceTotals] = await Promise.all([
-    db
-      .select({ totalRevenue: sql<number>`coalesce(sum(${salesInvoices.total}), 0)::integer` })
-      .from(salesInvoices)
-      .where(inArray(salesInvoices.id, scopedInvoiceIdsQuery(warehouseIds))),
-    db
-      .select({ total: salesInvoices.total, createdAt: salesInvoices.createdAt })
-      .from(salesInvoices)
-      .where(and(gte(salesInvoices.createdAt, sevenDaysAgo), inArray(salesInvoices.id, scopedInvoiceIdsQuery(warehouseIds)))),
-  ]);
+  const scopedIds = scopedInvoiceIdsQuery(warehouseIds);
 
-  const totalRevenue = totalRevenueRows[0].totalRevenue;
+  const [{ totalRevenue }] = await db
+    .select({ totalRevenue: sql<number>`coalesce(sum(${salesInvoices.total}), 0)::integer` })
+    .from(salesInvoices)
+    .where(inArray(salesInvoices.id, scopedIds));
+
+  const recentInvoiceTotals = await db
+    .select({ total: salesInvoices.total, createdAt: salesInvoices.createdAt })
+    .from(salesInvoices)
+    .where(and(gte(salesInvoices.createdAt, sevenDaysAgo), inArray(salesInvoices.id, scopedIds)));
+
   const revenue7Days = recentInvoiceTotals.reduce((s, inv) => s + inv.total, 0);
 
   return { totalRevenue, revenue7Days, invoiceCount7Days: recentInvoiceTotals.length, recentInvoiceTotals };
@@ -41,56 +40,23 @@ export async function getReportSummary() {
   const allWarehouses = await listWarehouses();
   const warehouseIds = allWarehouses.map((w) => w.id);
 
+  const allProducts = await listProducts({ warehouseIds });
+  const totalProducts = allProducts.length;
+  const totalStockValue = allProducts.reduce((sum, p) => sum + p.stock * p.price, 0);
+
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  // Toàn bộ truy vấn dưới đây độc lập với nhau (không cái nào cần kết quả của cái khác) — gộp
-  // chạy song song bằng Promise.all thay vì await nối tiếp từng cái. Driver Neon dùng WebSocket,
-  // mỗi await là 1 lần round-trip mạng thật tới Neon (không phải tính toán tại chỗ) — chạy nối
-  // tiếp ~10 truy vấn từng cộng dồn latency mạng, đây chính là lý do trang Báo cáo/Dashboard
-  // load chậm trước khi tối ưu (được đo thực tế: ~3-8s trước, dồn về ~1 round-trip sau khi gộp).
-  const [allProducts, recentTx, recentImportsRaw, revenueMetrics, revenueByCategoryRaw, recentInvoiceRows, rules] =
-    await Promise.all([
-      listProducts({ warehouseIds }),
-      db
-        .select({
-          type: inventoryTransactions.type,
-          quantity: inventoryTransactions.quantity,
-          createdAt: inventoryTransactions.createdAt,
-        })
-        .from(inventoryTransactions)
-        .innerJoin(products, eq(inventoryTransactions.productId, products.id))
-        .where(and(gte(inventoryTransactions.createdAt, sevenDaysAgo), inArray(products.warehouseId, warehouseIds))),
-      db
-        .select({
-          counterparty: inventoryTransactions.counterparty,
-          quantity: inventoryTransactions.quantity,
-          createdAt: inventoryTransactions.createdAt,
-          productName: products.name,
-        })
-        .from(inventoryTransactions)
-        .innerJoin(products, eq(inventoryTransactions.productId, products.id))
-        .where(and(eq(inventoryTransactions.type, "import"), inArray(products.warehouseId, warehouseIds)))
-        .orderBy(desc(inventoryTransactions.createdAt))
-        .limit(4),
-      computeRevenueMetrics(warehouseIds, sevenDaysAgo),
-      db
-        .select({
-          category: categories.name,
-          revenue: sql<number>`coalesce(sum(${salesInvoiceItems.lineTotal}), 0)::integer`,
-        })
-        .from(salesInvoiceItems)
-        .innerJoin(products, eq(salesInvoiceItems.productId, products.id))
-        .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(inArray(products.warehouseId, warehouseIds))
-        .groupBy(categories.name),
-      listInvoices({ limit: 5, warehouseIds }),
-      listRules(warehouseIds),
-    ]);
-
-  const totalProducts = allProducts.length;
-  const totalStockValue = allProducts.reduce((sum, p) => sum + p.stock * p.price, 0);
+  const recentTx = await db
+    .select({
+      type: inventoryTransactions.type,
+      quantity: inventoryTransactions.quantity,
+      createdAt: inventoryTransactions.createdAt,
+    })
+    .from(inventoryTransactions)
+    .innerJoin(products, eq(inventoryTransactions.productId, products.id))
+    .where(and(gte(inventoryTransactions.createdAt, sevenDaysAgo), inArray(products.warehouseId, warehouseIds)));
 
   const dailyFlow: { label: string; a: number; b: number }[] = [];
   for (let i = 6; i >= 0; i--) {
@@ -108,13 +74,30 @@ export async function getReportSummary() {
     });
   }
 
-  const maxCategoryStock = Math.max(1, ...PRODUCT_CATEGORIES.map((category) =>
-    allProducts.filter((p) => p.category === category).reduce((s, p) => s + p.stock, 0),
-  ));
-  const stockByCategory = PRODUCT_CATEGORIES.map((category) => {
-    const stock = allProducts.filter((p) => p.category === category).reduce((s, p) => s + p.stock, 0);
-    return { label: category, pct: Math.round((stock / maxCategoryStock) * 100) };
+  const categoryList = await listCategories();
+  const maxCategoryStock = Math.max(
+    1,
+    ...categoryList.map((cat) =>
+      allProducts.filter((p) => p.categoryId === cat.id).reduce((s, p) => s + p.stock, 0),
+    ),
+  );
+  const stockByCategory = categoryList.map((cat) => {
+    const stock = allProducts.filter((p) => p.categoryId === cat.id).reduce((s, p) => s + p.stock, 0);
+    return { label: cat.name, pct: Math.round((stock / maxCategoryStock) * 100) };
   });
+
+  const recentImportsRaw = await db
+    .select({
+      counterparty: inventoryTransactions.counterparty,
+      quantity: inventoryTransactions.quantity,
+      createdAt: inventoryTransactions.createdAt,
+      productName: products.name,
+    })
+    .from(inventoryTransactions)
+    .innerJoin(products, eq(inventoryTransactions.productId, products.id))
+    .where(and(eq(inventoryTransactions.type, "import"), inArray(products.warehouseId, warehouseIds)))
+    .orderBy(desc(inventoryTransactions.createdAt))
+    .limit(4);
 
   const recentImports = recentImportsRaw.map((row) => ({
     supplier: row.counterparty || row.productName,
@@ -124,11 +107,14 @@ export async function getReportSummary() {
 
   const lowStockCount = allProducts.filter((p) => p.stock < 20).length;
 
-  const alerts = computeAlerts(allProducts, rules);
+  const alerts = await evaluateAlerts(warehouseIds);
 
   // --- Doanh thu (revenue) ---
 
-  const { totalRevenue, revenue7Days, invoiceCount7Days, recentInvoiceTotals } = revenueMetrics;
+  const { totalRevenue, revenue7Days, invoiceCount7Days, recentInvoiceTotals } = await computeRevenueMetrics(
+    warehouseIds,
+    sevenDaysAgo,
+  );
 
   const dailyRevenue: { label: string; a: number }[] = [];
   for (let i = 6; i >= 0; i--) {
@@ -145,12 +131,24 @@ export async function getReportSummary() {
     });
   }
 
+  const revenueByCategoryRaw = await db
+    .select({
+      category: categories.name,
+      revenue: sql<number>`coalesce(sum(${salesInvoiceItems.lineTotal}), 0)::integer`,
+    })
+    .from(salesInvoiceItems)
+    .innerJoin(products, eq(salesInvoiceItems.productId, products.id))
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .where(inArray(products.warehouseId, warehouseIds))
+    .groupBy(categories.name);
+
   const maxCategoryRevenue = Math.max(1, ...revenueByCategoryRaw.map((r) => r.revenue));
-  const revenueByCategory = PRODUCT_CATEGORIES.map((category) => {
-    const revenue = revenueByCategoryRaw.find((r) => r.category === category)?.revenue ?? 0;
-    return { label: category, pct: Math.round((revenue / maxCategoryRevenue) * 100), revenue };
+  const revenueByCategory = categoryList.map((cat) => {
+    const revenue = revenueByCategoryRaw.find((r) => r.category === cat.name)?.revenue ?? 0;
+    return { label: cat.name, pct: Math.round((revenue / maxCategoryRevenue) * 100), revenue };
   });
 
+  const recentInvoiceRows = await listInvoices({ limit: 5, warehouseIds });
   const recentInvoices = recentInvoiceRows.map((inv) => ({
     customerName: inv.customerName,
     total: inv.total,
@@ -158,18 +156,16 @@ export async function getReportSummary() {
   }));
 
   // --- So sánh theo kho (hiện khi doanh nghiệp có nhiều hơn 1 kho) ---
-  // Lọc allProducts đã có sẵn trong bộ nhớ theo từng kho thay vì gọi lại listProducts() —
-  // khỏi tốn thêm 1 round-trip DB cho mỗi kho.
 
   const byWarehouse = await Promise.all(
     warehouseIds.map(async (warehouseId) => {
       const warehouseName = allWarehouses.find((w) => w.id === warehouseId)?.name ?? "?";
-      const warehouseProductCount = allProducts.filter((p) => p.warehouseId === warehouseId).length;
+      const warehouseProducts = await listProducts({ warehouseIds: [warehouseId] });
       const metrics = await computeRevenueMetrics([warehouseId], sevenDaysAgo);
       return {
         warehouseId,
         warehouseName,
-        totalProducts: warehouseProductCount,
+        totalProducts: warehouseProducts.length,
         totalRevenue: metrics.totalRevenue,
         revenue7Days: metrics.revenue7Days,
       };
