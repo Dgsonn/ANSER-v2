@@ -1,4 +1,4 @@
-import { boolean, check, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, integer, numeric, pgTable, text, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
@@ -15,11 +15,15 @@ export const warehouses = pgTable("warehouses", {
 });
 
 // M1
+// Removed `.unique()` from name, since this enforce exact uniqueness
+// The uniqueIndex is here to enforce case-insensitive uniqueness
 export const categories = pgTable("categories", {
   id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull().unique(),
+  name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("categories_name_case_insensitive_unique").on(sql`lower(${t.name})`),
+]);
 
 // M6
 export const suppliers = pgTable("suppliers", {
