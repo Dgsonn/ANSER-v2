@@ -227,7 +227,7 @@ export async function getSalesReportForPeriod(period: SalesReportPeriod) {
       : await db
           .select({
             productName: salesInvoiceItems.productName,
-            qtySold: sql<number>`sum(${salesInvoiceItems.quantity})::integer`,
+            qtySold: sql<number>`sum(${salesInvoiceItems.quantity})::numeric`,
             revenue: sql<number>`sum(${salesInvoiceItems.lineTotal})::integer`,
           })
           .from(salesInvoiceItems)
