@@ -1,0 +1,531 @@
+[{
+  "table_name": "automation_rules",
+  "constraint_name": "automation_last_run_status_hop_le",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK (((last_run_status IS NULL) OR (last_run_status = ANY (ARRAY['ok'::text, 'failed'::text]))))"
+}, {
+  "table_name": "automation_rules",
+  "constraint_name": "automation_rules_category_id_categories_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL"
+}, {
+  "table_name": "automation_rules",
+  "constraint_name": "automation_rules_warehouse_id_warehouses_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE SET NULL"
+}, {
+  "table_name": "automation_rules",
+  "constraint_name": "automation_rules_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "automation_rules",
+  "constraint_name": "automation_rules_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "automation_rules",
+  "constraint_name": "automation_rules_enabled_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL enabled"
+}, {
+  "table_name": "automation_rules",
+  "constraint_name": "automation_rules_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "automation_rules",
+  "constraint_name": "automation_rules_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL name"
+}, {
+  "table_name": "automation_rules",
+  "constraint_name": "automation_rules_type_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL type"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inv_tx_quantity_khac_khong",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK ((quantity <> (0)::numeric))"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inv_tx_source_di_cung_nhau",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK (((source_type IS NULL) = (source_id IS NULL)))"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inv_tx_source_type_hop_le",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK (((source_type IS NULL) OR (source_type = ANY (ARRAY['sale'::text, 'purchase'::text, 'stocktake'::text, 'transfer'::text, 'manual'::text]))))"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inv_tx_type_hop_le",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK ((type = ANY (ARRAY['import'::text, 'export'::text, 'adjustment'::text, 'transfer'::text])))"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_employee_id_employees_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_product_id_products_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_supplier_id_suppliers_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_warehouse_id_warehouses_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_product_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL product_id"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_quantity_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL quantity"
+}, {
+  "table_name": "inventory_transactions",
+  "constraint_name": "inventory_transactions_type_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL type"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_khong_tu_tro",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK (((linked_product_id IS NULL) OR (linked_product_id <> id)))"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_unit_factor_duong",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK ((unit_factor > (0)::numeric))"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_category_id_categories_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_linked_product_id_products_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (linked_product_id) REFERENCES products(id) ON DELETE SET NULL"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_warehouse_id_warehouses_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_code_unique",
+  "constraint_type": "UNIQUE",
+  "constraint_definition": "UNIQUE (code)"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_code_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL code"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL name"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_price_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL price"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_stock_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL stock"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_unit_factor_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL unit_factor"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_unit_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL unit"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_updated_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL updated_at"
+}, {
+  "table_name": "products",
+  "constraint_name": "products_warehouse_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL warehouse_id"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_role_hop_le",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK ((role = ANY (ARRAY['staff'::text, 'manager'::text, 'admin'::text])))"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_employee_id_employees_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_email_unique",
+  "constraint_type": "UNIQUE",
+  "constraint_definition": "UNIQUE (email)"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_email_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL email"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_first_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL first_name"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_last_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL last_name"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_password_hash_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL password_hash"
+}, {
+  "table_name": "users",
+  "constraint_name": "users_role_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL role"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "invoice_item_quantity_khac_khong",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK ((quantity <> (0)::numeric))"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_invoice_id_sales_invoices_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (invoice_id) REFERENCES sales_invoices(id) ON DELETE CASCADE"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_product_id_products_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_invoice_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL invoice_id"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_line_total_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL line_total"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_product_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL product_name"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_quantity_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL quantity"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_unit_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL unit"
+}, {
+  "table_name": "sales_invoice_items",
+  "constraint_name": "sales_invoice_items_unit_price_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL unit_price"
+}, {
+  "table_name": "sales_invoices",
+  "constraint_name": "sales_invoices_customer_id_customers_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL"
+}, {
+  "table_name": "sales_invoices",
+  "constraint_name": "sales_invoices_warehouse_id_warehouses_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)"
+}, {
+  "table_name": "sales_invoices",
+  "constraint_name": "sales_invoices_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "sales_invoices",
+  "constraint_name": "sales_invoices_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "sales_invoices",
+  "constraint_name": "sales_invoices_customer_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL customer_name"
+}, {
+  "table_name": "sales_invoices",
+  "constraint_name": "sales_invoices_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "sales_invoices",
+  "constraint_name": "sales_invoices_total_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL total"
+}, {
+  "table_name": "warehouses",
+  "constraint_name": "warehouses_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "warehouses",
+  "constraint_name": "warehouses_name_unique",
+  "constraint_type": "UNIQUE",
+  "constraint_definition": "UNIQUE (name)"
+}, {
+  "table_name": "warehouses",
+  "constraint_name": "warehouses_allows_zero_value_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL allows_zero_value"
+}, {
+  "table_name": "warehouses",
+  "constraint_name": "warehouses_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "warehouses",
+  "constraint_name": "warehouses_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "warehouses",
+  "constraint_name": "warehouses_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL name"
+}, {
+  "table_name": "customers",
+  "constraint_name": "customers_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "customers",
+  "constraint_name": "customers_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "customers",
+  "constraint_name": "customers_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "customers",
+  "constraint_name": "customers_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL name"
+}, {
+  "table_name": "company_settings",
+  "constraint_name": "company_settings_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "company_settings",
+  "constraint_name": "company_settings_currency_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL currency"
+}, {
+  "table_name": "company_settings",
+  "constraint_name": "company_settings_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "company_settings",
+  "constraint_name": "company_settings_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL name"
+}, {
+  "table_name": "company_settings",
+  "constraint_name": "company_settings_updated_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL updated_at"
+}, {
+  "table_name": "employees",
+  "constraint_name": "employees_warehouse_id_warehouses_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE SET NULL"
+}, {
+  "table_name": "employees",
+  "constraint_name": "employees_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "employees",
+  "constraint_name": "employees_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "employees",
+  "constraint_name": "employees_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "employees",
+  "constraint_name": "employees_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL name"
+}, {
+  "table_name": "categories",
+  "constraint_name": "categories_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "categories",
+  "constraint_name": "categories_name_unique",
+  "constraint_type": "UNIQUE",
+  "constraint_definition": "UNIQUE (name)"
+}, {
+  "table_name": "categories",
+  "constraint_name": "categories_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "categories",
+  "constraint_name": "categories_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "categories",
+  "constraint_name": "categories_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL name"
+}, {
+  "table_name": "invoice_payments",
+  "constraint_name": "payment_amount_khac_khong",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK ((amount <> 0))"
+}, {
+  "table_name": "invoice_payments",
+  "constraint_name": "payment_method_hop_le",
+  "constraint_type": "CHECK",
+  "constraint_definition": "CHECK (((method IS NULL) OR (method = ANY (ARRAY['cash'::text, 'bank_transfer'::text, 'other'::text]))))"
+}, {
+  "table_name": "invoice_payments",
+  "constraint_name": "invoice_payments_invoice_id_sales_invoices_id_fk",
+  "constraint_type": "FOREIGN KEY",
+  "constraint_definition": "FOREIGN KEY (invoice_id) REFERENCES sales_invoices(id) ON DELETE CASCADE"
+}, {
+  "table_name": "invoice_payments",
+  "constraint_name": "invoice_payments_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "invoice_payments",
+  "constraint_name": "invoice_payments_amount_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL amount"
+}, {
+  "table_name": "invoice_payments",
+  "constraint_name": "invoice_payments_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "invoice_payments",
+  "constraint_name": "invoice_payments_invoice_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL invoice_id"
+}, {
+  "table_name": "invoice_payments",
+  "constraint_name": "invoice_payments_paid_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL paid_at"
+}, {
+  "table_name": "suppliers",
+  "constraint_name": "suppliers_pkey",
+  "constraint_type": "PRIMARY KEY",
+  "constraint_definition": "PRIMARY KEY (id)"
+}, {
+  "table_name": "suppliers",
+  "constraint_name": "suppliers_created_at_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL created_at"
+}, {
+  "table_name": "suppliers",
+  "constraint_name": "suppliers_id_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL id"
+}, {
+  "table_name": "suppliers",
+  "constraint_name": "suppliers_name_not_null",
+  "constraint_type": null,
+  "constraint_definition": "NOT NULL name"
+}]
