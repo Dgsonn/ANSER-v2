@@ -1,0 +1,66 @@
+[{
+  "column_name": "id",
+  "data_type": "uuid",
+  "is_nullable": "NO",
+  "column_default": "gen_random_uuid()"
+}, {
+  "column_name": "product_id",
+  "data_type": "uuid",
+  "is_nullable": "NO",
+  "column_default": null
+}, {
+  "column_name": "type",
+  "data_type": "text",
+  "is_nullable": "NO",
+  "column_default": null
+}, {
+  "column_name": "quantity",
+  "data_type": "numeric",
+  "is_nullable": "NO",
+  "column_default": null
+}, {
+  "column_name": "counterparty",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+}, {
+  "column_name": "note",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+}, {
+  "column_name": "created_at",
+  "data_type": "timestamp with time zone",
+  "is_nullable": "NO",
+  "column_default": "now()"
+}, {
+  "column_name": "unit_cost",
+  "data_type": "integer",
+  "is_nullable": "YES",
+  "column_default": null
+}, {
+  "column_name": "warehouse_id",
+  "data_type": "uuid",
+  "is_nullable": "YES",
+  "column_default": null
+}, {
+  "column_name": "source_type",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+}, {
+  "column_name": "source_id",
+  "data_type": "uuid",
+  "is_nullable": "YES",
+  "column_default": null
+}, {
+  "column_name": "supplier_id",
+  "data_type": "uuid",
+  "is_nullable": "YES",
+  "column_default": null
+}, {
+  "column_name": "employee_id",
+  "data_type": "uuid",
+  "is_nullable": "YES",
+  "column_default": null
+}]
