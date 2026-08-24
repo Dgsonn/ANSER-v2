@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import TrangThaiAI from "@/components/dashboard/TrangThaiAI";
 import {
   AlertTriangleIcon,
   BoltIcon,
@@ -85,9 +86,14 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="rounded-xl border border-white/[0.08] bg-black/30 p-4">
-        <p className="text-xs font-semibold text-zinc-300">ANSER Engine v2.0</p>
-        <p className="mt-1 text-[11px] text-zinc-500">Bản demo — dữ liệu mẫu</p>
+      <div className="space-y-3 rounded-xl border border-white/[0.08] bg-black/30 p-4">
+        <div>
+          <p className="text-xs font-semibold text-zinc-300">ANSER Engine v2.0</p>
+          <p className="mt-1 text-[11px] text-zinc-500">Bản demo — dữ liệu mẫu</p>
+        </div>
+        <div className="border-t border-white/[0.06] pt-3">
+          <TrangThaiAI />
+        </div>
       </div>
     </aside>
   );
