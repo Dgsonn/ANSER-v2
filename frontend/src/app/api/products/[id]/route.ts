@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteProduct, getProductById, PRODUCT_CATEGORIES, updateProduct } from "@/server/store/products";
+import { deleteProduct, getProductById, updateProduct } from "@/server/store/products";
 import { listWarehouses } from "@/server/store/warehouses";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -15,10 +15,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
 
-  if (body.category && !PRODUCT_CATEGORIES.includes(body.category)) {
-    return NextResponse.json({ message: "Danh mục không hợp lệ." }, { status: 400 });
-  }
-
   if (body.warehouseId !== undefined) {
     const validWarehouses = await listWarehouses();
     if (!validWarehouses.some((w) => w.id === body.warehouseId)) {
@@ -26,26 +22,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
+  // Tồn kho KHÔNG sửa được qua route này — chỉ thay đổi qua phiếu nhập/xuất ở Quản lý kho
+  // (createTransaction() dùng db.transaction() để đồng bộ với inventoryTransactions), tránh
+  // sửa tay làm tồn kho lệch khỏi lịch sử giao dịch thật.
   const patch: Partial<{
     name: string;
+    categoryId: string | null;
     category: string;
     unit: string;
-    stock: number;
     price: number;
     cost: number | null;
     warehouseId: string;
   }> = {};
   if (body.name !== undefined) patch.name = body.name;
+  if (body.categoryId !== undefined) patch.categoryId = body.categoryId;
   if (body.category !== undefined) patch.category = body.category;
   if (body.unit !== undefined) patch.unit = body.unit;
   if (body.warehouseId !== undefined) patch.warehouseId = body.warehouseId;
-  if (body.stock !== undefined) {
-    const stockNum = Number(body.stock);
-    if (!Number.isFinite(stockNum) || stockNum < 0) {
-      return NextResponse.json({ message: "Tồn kho không hợp lệ." }, { status: 400 });
-    }
-    patch.stock = stockNum;
-  }
   if (body.price !== undefined) {
     const priceNum = Number(body.price);
     if (!Number.isFinite(priceNum) || priceNum < 0) {

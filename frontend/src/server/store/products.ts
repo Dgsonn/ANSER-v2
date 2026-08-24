@@ -1,8 +1,11 @@
 import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { products } from "@/server/db/schema";
+import { categories, products } from "@/server/db/schema";
+import { getOrCreateCategoryByName } from "@/server/store/categories";
 
-export type Product = typeof products.$inferSelect;
+export type Product = typeof products.$inferSelect & {
+  category?: string;
+};
 
 export const PRODUCT_CATEGORIES = [
   "Nguyên vật liệu",
@@ -19,28 +22,85 @@ export function productStatus(stock: number, threshold = LOW_STOCK_THRESHOLD) {
   return "Còn hàng" as const;
 }
 
-export async function listProducts(filter?: { search?: string; category?: string; warehouseIds?: string[] }) {
+export async function listProducts(filter?: {
+  search?: string;
+  categoryId?: string;
+  category?: string;
+  warehouseIds?: string[];
+}): Promise<Product[]> {
   const conditions = [];
   if (filter?.search) {
     conditions.push(ilike(products.name, `%${filter.search}%`));
   }
-  if (filter?.category) {
-    conditions.push(eq(products.category, filter.category));
+  if (filter?.categoryId) {
+    conditions.push(eq(products.categoryId, filter.categoryId));
+  } else if (filter?.category) {
+    conditions.push(eq(categories.name, filter.category));
   }
   if (filter?.warehouseIds) {
     conditions.push(inArray(products.warehouseId, filter.warehouseIds));
   }
 
-  return db
-    .select()
+  const rows = await db
+    .select({
+      id: products.id,
+      code: products.code,
+      name: products.name,
+      categoryId: products.categoryId,
+      warehouseId: products.warehouseId,
+      linkedProductId: products.linkedProductId,
+      unit: products.unit,
+      baseUnit: products.baseUnit,
+      unitFactor: products.unitFactor,
+      stock: products.stock,
+      price: products.price,
+      cost: products.cost,
+      isReducedVat: products.isReducedVat,
+      createdAt: products.createdAt,
+      updatedAt: products.updatedAt,
+      category: categories.name,
+    })
     .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(asc(products.code));
+
+  return rows.map((r) => ({
+    ...r,
+    category: r.category ?? "Chưa phân loại",
+  }));
 }
 
-export async function getProductById(id: string) {
-  const rows = await db.select().from(products).where(eq(products.id, id)).limit(1);
-  return rows[0];
+export async function getProductById(id: string): Promise<Product | undefined> {
+  const rows = await db
+    .select({
+      id: products.id,
+      code: products.code,
+      name: products.name,
+      categoryId: products.categoryId,
+      warehouseId: products.warehouseId,
+      linkedProductId: products.linkedProductId,
+      unit: products.unit,
+      baseUnit: products.baseUnit,
+      unitFactor: products.unitFactor,
+      stock: products.stock,
+      price: products.price,
+      cost: products.cost,
+      isReducedVat: products.isReducedVat,
+      createdAt: products.createdAt,
+      updatedAt: products.updatedAt,
+      category: categories.name,
+    })
+    .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .where(eq(products.id, id))
+    .limit(1);
+
+  if (!rows[0]) return undefined;
+  return {
+    ...rows[0],
+    category: rows[0].category ?? "Chưa phân loại",
+  };
 }
 
 async function generateProductCode() {
@@ -51,7 +111,8 @@ async function generateProductCode() {
 
 export async function createProduct(input: {
   name: string;
-  category: string;
+  categoryId?: string | null;
+  category?: string;
   unit: string;
   stock: number;
   price: number;
@@ -59,13 +120,19 @@ export async function createProduct(input: {
   cost?: number | null;
   warehouseId: string;
 }) {
+  let resolvedCategoryId = input.categoryId ?? null;
+  if (!resolvedCategoryId && input.category) {
+    const cat = await getOrCreateCategoryByName(input.category);
+    resolvedCategoryId = cat.id;
+  }
+
   const code = await generateProductCode();
   const rows = await db
     .insert(products)
     .values({
       code,
       name: input.name,
-      category: input.category,
+      categoryId: resolvedCategoryId,
       unit: input.unit,
       stock: input.stock,
       price: input.price,
@@ -80,6 +147,7 @@ export async function updateProduct(
   id: string,
   patch: Partial<{
     name: string;
+    categoryId: string | null;
     category: string;
     unit: string;
     stock: number;
@@ -88,9 +156,21 @@ export async function updateProduct(
     warehouseId: string;
   }>,
 ) {
+  const updateData: Record<string, unknown> = { ...patch, updatedAt: new Date() };
+
+  if (patch.category !== undefined && patch.categoryId === undefined) {
+    if (patch.category) {
+      const cat = await getOrCreateCategoryByName(patch.category);
+      updateData.categoryId = cat.id;
+    } else {
+      updateData.categoryId = null;
+    }
+  }
+  delete updateData.category;
+
   const rows = await db
     .update(products)
-    .set({ ...patch, updatedAt: new Date() })
+    .set(updateData)
     .where(eq(products.id, id))
     .returning();
   return rows[0];

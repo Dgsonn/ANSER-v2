@@ -21,7 +21,7 @@ export async function createRule(input: {
   name: string;
   type?: string;
   thresholdQty?: number;
-  categoryFilter?: string;
+  categoryId?: string | null;
   warehouseId?: string;
   enabled?: boolean;
   n8nWorkflowId?: string;
@@ -35,7 +35,7 @@ export async function createRule(input: {
       // Ngưỡng/danh mục chỉ có ý nghĩa với rule tồn kho — các loại khác (báo cáo doanh số,
       // chào khách hàng mới) chỉ là dòng đánh dấu "đã triển khai qua n8n", không dùng threshold.
       thresholdQty: type === "low_stock_alert" ? (input.thresholdQty ?? LOW_STOCK_THRESHOLD) : null,
-      categoryFilter: input.categoryFilter,
+      categoryId: input.categoryId ?? null,
       warehouseId: input.warehouseId,
       enabled: input.enabled ?? true,
       n8nWorkflowId: input.n8nWorkflowId,
@@ -49,7 +49,7 @@ export async function updateRule(
   patch: Partial<{
     name: string;
     thresholdQty: number;
-    categoryFilter: string | null;
+    categoryId: string | null;
     warehouseId: string | null;
     enabled: boolean;
     n8nWorkflowId: string | null;
@@ -92,7 +92,7 @@ export async function evaluateAlerts(warehouseIds?: string[]): Promise<Automatio
     const matching = products.filter(
       (product) =>
         product.stock < threshold &&
-        (!rule.categoryFilter || product.category === rule.categoryFilter) &&
+        (!rule.categoryId || product.categoryId === rule.categoryId) &&
         (!rule.warehouseId || product.warehouseId === rule.warehouseId),
     );
     for (const product of matching) {

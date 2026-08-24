@@ -4,12 +4,14 @@ import { automationRules, inventoryTransactions, products, warehouses } from "@/
 import { LOW_STOCK_THRESHOLD } from "@/server/store/products";
 import { listWarehouses } from "@/server/store/warehouses";
 
+import { seedCategories } from "@/server/store/categories";
+
 const SEED_PRODUCTS = [
-  { code: "SP-001", name: "Trục cán inox 304", category: "Thành phẩm", unit: "Cái", stock: 320, price: 1250000 },
-  { code: "SP-014", name: "Vòng bi công nghiệp", category: "Bán thành phẩm", unit: "Cái", stock: 15, price: 480000 },
-  { code: "SP-027", name: "Tấm nhôm 5mm", category: "Nguyên vật liệu", unit: "Tấm", stock: 0, price: 620000 },
-  { code: "SP-033", name: "Bulong M10 (hộp 100)", category: "Phụ liệu", unit: "Hộp", stock: 540, price: 95000 },
-  { code: "SP-041", name: "Motor giảm tốc 1HP", category: "Thành phẩm", unit: "Cái", stock: 42, price: 3150000 },
+  { code: "SP-001", name: "Trục cán inox 304", categoryName: "Thành phẩm", unit: "Cái", stock: 320, price: 1250000 },
+  { code: "SP-014", name: "Vòng bi công nghiệp", categoryName: "Bán thành phẩm", unit: "Cái", stock: 15, price: 480000 },
+  { code: "SP-027", name: "Tấm nhôm 5mm", categoryName: "Nguyên vật liệu", unit: "Tấm", stock: 0, price: 620000 },
+  { code: "SP-033", name: "Bulong M10 (hộp 100)", categoryName: "Phụ liệu", unit: "Hộp", stock: 540, price: 95000 },
+  { code: "SP-041", name: "Motor giảm tốc 1HP", categoryName: "Thành phẩm", unit: "Cái", stock: 42, price: 3150000 },
 ];
 
 const SEED_IMPORTS = [
@@ -40,10 +42,22 @@ export async function seedInitialData() {
   if (existing.length > 0) return;
 
   const warehouseId = await ensureDefaultWarehouseAndBackfill();
+  const categoryList = await seedCategories();
+  const categoryMap = new Map(categoryList.map((c) => [c.name, c.id]));
 
   const inserted = await db
     .insert(products)
-    .values(SEED_PRODUCTS.map((p) => ({ ...p, warehouseId })))
+    .values(
+      SEED_PRODUCTS.map((p) => ({
+        code: p.code,
+        name: p.name,
+        categoryId: categoryMap.get(p.categoryName) ?? null,
+        unit: p.unit,
+        stock: p.stock,
+        price: p.price,
+        warehouseId,
+      })),
+    )
     .returning();
 
   for (const seed of SEED_IMPORTS) {
