@@ -6,6 +6,7 @@ import TrangThaiAI from "@/components/dashboard/TrangThaiAI";
 import {
   AlertTriangleIcon,
   BoltIcon,
+  BookIcon,
   BoxIcon,
   ChartIcon,
   HomeIcon,
@@ -31,6 +32,9 @@ const navItems = [
   { label: "Tự động hoá", icon: BoltIcon, href: "/dashboard/automation" },
   { label: "Nhân sự", icon: StaffIcon, href: "/dashboard/staff" },
   { label: "Cài đặt", icon: SettingsIcon, href: "/dashboard/settings" },
+  // Cuối danh sách, nhưng CÓ trong danh sách: hướng dẫn nằm trong tài liệu
+  // riêng thì lúc bí không ai nhớ nó ở đâu.
+  { label: "Hướng dẫn dùng", icon: BookIcon, href: "/dashboard/huong-dan" },
 ];
 
 export default function Sidebar() {
