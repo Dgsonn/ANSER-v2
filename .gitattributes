@@ -1,0 +1,23 @@
+# Chuẩn hoá line-ending về LF trong repo (kể cả khi checkout trên Windows), tránh
+# nhiễu diff CRLF/LF từng gây ra 5 file "bị sửa" giả trên feat/database-application
+# (xem "5. Project_Playbook_VI.md" §5 mục 8).
+* text=auto eol=lf
+
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

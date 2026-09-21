@@ -227,7 +227,9 @@ export async function getSalesReportForPeriod(period: SalesReportPeriod) {
       : await db
           .select({
             productName: salesInvoiceItems.productName,
-            qtySold: sql<number>`sum(${salesInvoiceItems.quantity})::integer`,
+            // quantity là numeric(14,3) — KHÔNG cast ::integer, sẽ cắt mất phần lẻ (vd bán
+            // theo kg/lít). Driver pg trả numeric dạng string, chuyển bằng Number() bên dưới.
+            qtySold: sql<string>`sum(${salesInvoiceItems.quantity})`,
             revenue: sql<number>`sum(${salesInvoiceItems.lineTotal})::integer`,
           })
           .from(salesInvoiceItems)
@@ -236,10 +238,12 @@ export async function getSalesReportForPeriod(period: SalesReportPeriod) {
           .orderBy(desc(sql`sum(${salesInvoiceItems.lineTotal})`))
           .limit(5);
 
+  const topProducts = topProductsRaw.map((p) => ({ ...p, qtySold: Number(p.qtySold) }));
+
   return {
     periodLabel,
     totalOrders,
     totalRevenue,
-    topProducts: topProductsRaw,
+    topProducts,
   };
 }

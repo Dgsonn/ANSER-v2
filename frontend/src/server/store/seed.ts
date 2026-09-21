@@ -4,7 +4,9 @@ import { automationRules, inventoryTransactions, products, warehouses } from "@/
 import { LOW_STOCK_THRESHOLD } from "@/server/store/products";
 import { listWarehouses } from "@/server/store/warehouses";
 
-import { seedCategories } from "@/server/store/categories";
+import { listCategories, seedCategories } from "@/server/store/categories";
+import { ensureCompanySettingsRow } from "@/server/store/settings";
+import { seedDemoUser } from "@/server/store/users";
 
 const SEED_PRODUCTS = [
   { code: "SP-001", name: "Trục cán inox 304", categoryName: "Thành phẩm", unit: "Cái", stock: 320, price: 1250000 },
@@ -36,13 +38,16 @@ export async function ensureDefaultWarehouseAndBackfill() {
   return defaultWarehouseId;
 }
 
-// Idempotent: only seeds when the products table is empty (fresh DB).
+// Idempotent: only seeds demo products when the products table is empty (fresh DB).
+// Does NOT seed categories itself — call seedCategories() separately (see runStartupSeed).
+// A DB that already has products from before categories existed must still get categories,
+// which this function's products-emptiness guard would otherwise prevent.
 export async function seedInitialData() {
   const existing = await db.select({ id: products.id }).from(products).limit(1);
   if (existing.length > 0) return;
 
   const warehouseId = await ensureDefaultWarehouseAndBackfill();
-  const categoryList = await seedCategories();
+  const categoryList = await listCategories();
   const categoryMap = new Map(categoryList.map((c) => [c.name, c.id]));
 
   const inserted = await db
@@ -77,4 +82,15 @@ export async function seedInitialData() {
     thresholdQty: LOW_STOCK_THRESHOLD,
     enabled: true,
   });
+}
+
+// Single entry point for server-startup seeding. Each step guards itself on its own
+// table's state, so no step's precondition can accidentally skip another (see the
+// products/categories bug this replaced, in seedInitialData's comment above).
+export async function runStartupSeed() {
+  await seedDemoUser();
+  await ensureDefaultWarehouseAndBackfill();
+  await seedCategories();
+  await seedInitialData();
+  await ensureCompanySettingsRow();
 }
