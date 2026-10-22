@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Script nạp dữ liệu một lần, không thuộc ứng dụng, và đã cũ so với schema hiện tại.
+    // Chưa quyết giữ hay bỏ (BLOCKERS.md D3) — loại khỏi lint thay vì sửa một file chưa
+    // ai xác nhận còn dùng. Cũng bị loại khỏi tsconfig.json vì cùng lý do.
+    "import-real-data.ts",
   ]),
 ]);
 
