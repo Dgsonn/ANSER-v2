@@ -9,7 +9,7 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "@/server/db/client";
-import { customers, products, suppliers } from "@/server/db/schema";
+import { customers, inventoryTransactions, products, suppliers } from "@/server/db/schema";
 import { getOrCreateCategoryByName } from "@/server/store/categories";
 import type { DongDoc, KetQuaDoc, LoaiFile } from "./doc-excel";
 
@@ -115,8 +115,45 @@ export async function lapKeHoach(kq: KetQuaDoc): Promise<KeHoach> {
 
 export type KetQuaGhi = { them: number; sua: number; boQua: number; loi: string[] };
 
+type GiaoDich = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Ghi MỘT dòng `adjustment` vào sổ kho cho phần tồn mà lượt nhập vừa đặt.
+ *
+ * Bất biến của cả hệ thống là `products.stock = SUM(inventory_transactions.quantity)`
+ * (B1, `/api/inventory/reconcile` kiểm đúng điều này). Đặt `stock` mà không ghi
+ * sổ thì mọi mặt hàng vừa nhập đều hiện "lệch" ở bộ đối chiếu, và lần nhập lại
+ * sau ghi đè con số mà không để lại dấu vết chênh lệch đã đi đâu.
+ *
+ * Không có `sourceType`/`sourceId`: không có chứng từ gốc nào để trỏ về, chỉ có
+ * một bản xuất tổng hợp — ràng buộc `inv_tx_source_di_cung_nhau` cho phép cả hai
+ * cùng NULL. Lý do nằm ở `note`.
+ */
+async function ghiSoKho(tx: GiaoDich, a: {
+  productId: string;
+  warehouseId: string;
+  delta: number;
+  unitCost: number | null;
+  employeeId?: string;
+  note: string;
+}) {
+  // `quantity` là numeric(14,3): làm tròn về 3 chữ số trước khi so với 0, không
+  // thì sai số dấu phẩy động (598.8 − 598.79999…) sinh ra một dòng rác ~1e-13.
+  const quantity = Math.round(a.delta * 1000) / 1000;
+  if (quantity === 0) return; // CHECK `inv_tx_quantity_khac_khong`
+  await tx.insert(inventoryTransactions).values({
+    productId: a.productId,
+    warehouseId: a.warehouseId,
+    type: "adjustment",
+    quantity,
+    unitCost: a.unitCost,
+    employeeId: a.employeeId,
+    note: a.note,
+  });
+}
+
 export async function apDung(
-  kq: KetQuaDoc, warehouseId?: string,
+  kq: KetQuaDoc, warehouseId?: string, employeeId?: string,
 ): Promise<KetQuaGhi> {
   const kh = await lapKeHoach(kq);
   const ra: KetQuaGhi = { them: 0, sua: 0, boQua: kh.boQua.length + kh.khongDoi.length, loi: [] };
@@ -147,22 +184,39 @@ export async function apDung(
     if (kq.loai === "hang_hoa") {
       for (const m of kh.themMoi) {
         const d = m.dong;
-        await tx.insert(products).values({
+        const stock = d.stock ?? 0;
+        const [moi] = await tx.insert(products).values({
           code: d.code, name: d.name, warehouseId: warehouseId!,
           categoryId: d.category ? idNhom.get(d.category) ?? null : null,
-          unit: d.unit || "Cái", stock: d.stock ?? 0,
+          unit: d.unit || "Cái", stock,
           cost: d.cost ?? null, isReducedVat: d.isReducedVat ?? null,
+        }).returning({ id: products.id });
+        await ghiSoKho(tx, {
+          productId: moi.id, warehouseId: warehouseId!, delta: stock,
+          unitCost: d.cost ?? null, employeeId,
+          note: `Nhập Excel MISA: tồn đầu ${stock}`,
         });
         ra.them++;
       }
       for (const m of kh.capNhat) {
         const d = m.dong;
+        const stock = d.stock ?? 0;
+        // Đọc lại tồn TRONG giao dịch và khoá dòng: con số ở bước xem trước có
+        // thể đã cũ (một hoá đơn bán vừa trừ kho giữa lúc xem và lúc xác nhận),
+        // và chênh lệch ghi vào sổ kho phải tính trên tồn thật ngay lúc ghi.
+        const [ht] = await tx.select({ stock: products.stock, warehouseId: products.warehouseId })
+          .from(products).where(eq(products.id, m.idHienTai!)).for("update");
         await tx.update(products).set({
-          name: d.name, unit: d.unit || "Cái", stock: d.stock ?? 0,
+          name: d.name, unit: d.unit || "Cái", stock,
           cost: d.cost ?? null, isReducedVat: d.isReducedVat ?? null,
           ...(d.category ? { categoryId: idNhom.get(d.category) ?? null } : {}),
           updatedAt: new Date(),
         }).where(eq(products.id, m.idHienTai!));
+        await ghiSoKho(tx, {
+          productId: m.idHienTai!, warehouseId: ht.warehouseId, delta: stock - ht.stock,
+          unitCost: d.cost ?? null, employeeId,
+          note: `Nhập Excel MISA: điều chỉnh tồn ${ht.stock} → ${stock}`,
+        });
         ra.sua++;
       }
     } else {

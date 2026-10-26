@@ -98,7 +98,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const ra = await apDung(kq, warehouseId);
+    const ra = await apDung(kq, warehouseId, user.employeeId ?? undefined);
     return NextResponse.json({ ...ra, loai: kq.loai });
   } catch (e) {
     return NextResponse.json(
